@@ -185,3 +185,10 @@ RaceDay
 │   └── RaceDayDB.sql
 │
 └── README.md
+
+## Database Setup
+
+To run the RaceDay database, open the SQL script from the `/docs` folder in
+SQL Server Management Studio (SSMS) and execute the script.
+
+The script creates and populates the RaceDay database.
