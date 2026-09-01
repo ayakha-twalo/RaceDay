@@ -100,7 +100,7 @@ The ERD identifies primary keys, foreign keys, relationships and cardinality.
 
 The completed ERD is available in the `/docs` folder as:
 
-`RaceDay_ERD.pdf`
+`RaceDay_ERD.png`
 
 
 ### API Endpoint Plan
