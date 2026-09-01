@@ -180,7 +180,7 @@ RaceDay
 │       └── part1-ci.yml
 │
 ├── docs
-│   ├── RaceDay_ERD.pdf
+│   ├── RaceDay_ERD.png
 │   ├── RaceDay_API_Endpoint_Plan.pdf
 │   └── RaceDayDB.sql
 │
