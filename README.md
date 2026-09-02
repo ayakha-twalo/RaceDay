@@ -172,7 +172,7 @@ together in the `/docs` folder.
 
 The planned repository structure is:
 
-```text
+
 RaceDay
 │
 ├── .github
@@ -185,6 +185,7 @@ RaceDay
 │   └── RaceDayDB.sql
 │
 └── README.md
+ 
 
 ## Database Setup
 
@@ -192,3 +193,15 @@ To run the RaceDay database, open the SQL script from the `/docs` folder in
 SQL Server Management Studio (SSMS) and execute the script.
 
 The script creates and populates the RaceDay database.
+
+## CI/CD
+
+GitHub Actions is used to check that the required Part 1 files are present
+in the repository.
+
+### Successful Build
+
+![alt text](CI_workflow.png)
+
+
+
