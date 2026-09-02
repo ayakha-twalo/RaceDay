@@ -199,9 +199,7 @@ The script creates and populates the RaceDay database.
 GitHub Actions is used to check that the required Part 1 files are present
 in the repository.
 
-### Successful Build
 
-![alt text](CI_workflow.png)
 
 
 
