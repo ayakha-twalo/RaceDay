@@ -183,8 +183,8 @@ in the repository.
 
 YouTube Link: https://youtu.be/HMXjDea5D2A
 
-```text
 ## Repository Structure
+```text
 
 The repository is organised so that the Part 1 planning documents are kept
 together in the `/docs` folder.
