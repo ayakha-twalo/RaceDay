@@ -164,7 +164,23 @@ The completed SQL script is available in the `/docs` folder as:
 
 `RaceDayDB.sql`
 
+## Database Setup
 
+To run the RaceDay database, open the SQL script from the `/docs` folder in
+SQL Server Management Studio (SSMS) and execute the script.
+
+The script creates and populates the RaceDay database.
+
+## CI/CD
+
+GitHub Actions is used to check that the required Part 1 files are present
+in the repository.
+
+### Successful Build
+![alt text](CI_workflow.png)
+
+
+```text
 ## Repository Structure
 
 The repository is organised so that the Part 1 planning documents are kept
@@ -186,19 +202,6 @@ RaceDay
 │
 └── README.md
  
-
-## Database Setup
-
-To run the RaceDay database, open the SQL script from the `/docs` folder in
-SQL Server Management Studio (SSMS) and execute the script.
-
-The script creates and populates the RaceDay database.
-
-## CI/CD
-
-GitHub Actions is used to check that the required Part 1 files are present
-in the repository.
-
 
 
 
