@@ -6,4 +6,12 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Folder Include="DTOs\Events\" />
+    <Folder Include="DTOs\Categories\" />
+    <Folder Include="DTOs\Enrolments\" />
+    <Folder Include="DTOs\Results\" />
+    <Folder Include="DTOs\Profile\" />
+  </ItemGroup>
+
 </Project>
