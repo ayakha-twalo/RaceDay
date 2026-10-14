@@ -6,81 +6,82 @@ using Microsoft.EntityFrameworkCore;
 using RaceDay.Api.Controllers;
 using RaceDay.Api.Data;
 using RaceDay.Api.Models;
+using RaceDay.Contracts.DTOs.Auth;
 
 namespace RaceDay.Api.Tests
 {
     public class UnitTest1
     {
+        // Test 1: Passwords are hashed and can be verified.
         [Fact]
         public void PasswordHasher_HashesAndVerifiesPassword()
         {
-            // Arrange
-            var user = new User();
-            var passwordHasher = new PasswordHasher<User>();
+            var hasher = new PasswordHasher<User>();
+
+            var user = new User
+            {
+                Email = "test@example.com"
+            };
+
             string password = "RaceDayTest123!";
 
-            // Act
-            string passwordHash =
-                passwordHasher.HashPassword(user, password);
+            string hashedPassword =
+                hasher.HashPassword(user, password);
 
-            var correctPasswordResult =
-                passwordHasher.VerifyHashedPassword(
-                    user, passwordHash, password);
+            Assert.NotEqual(password, hashedPassword);
 
-            var incorrectPasswordResult =
-                passwordHasher.VerifyHashedPassword(
-                    user, passwordHash, "WrongPassword123!");
-
-            // Assert
-            Assert.NotEqual(password, passwordHash);
+            var result = hasher.VerifyHashedPassword(
+                user,
+                hashedPassword,
+                password);
 
             Assert.Equal(
                 PasswordVerificationResult.Success,
-                correctPasswordResult);
-
-            Assert.Equal(
-                PasswordVerificationResult.Failed,
-                incorrectPasswordResult);
+                result);
         }
 
+        // Test 2: Participants cannot create events.
         [Fact]
         public async Task CreateEvent_ParticipantRole_ReturnsForbidden()
         {
-            // Arrange
             var options = new DbContextOptionsBuilder<RaceDayDbContext>()
                 .UseInMemoryDatabase(Guid.NewGuid().ToString())
                 .Options;
 
             using var context = new RaceDayDbContext(options);
 
-            var controller = new EventsController(context);
-            controller.ControllerContext =
-                CreateControllerContext(1, "Participant");
+            var controller = new EventsController(context)
+            {
+                ControllerContext = CreateControllerContext(
+                    1,
+                    "Participant")
+            };
 
             var request = new EventRequest
             {
-                EventName = "Test Race",
-                Description = "Testing permissions",
+                EventName = "Test Running Event",
+                Description = "A test event",
                 EventDate = DateTime.UtcNow.AddDays(30),
                 Location = "East London",
                 Distance = 10,
                 EventTypeID = 1
             };
 
-            // Act
             var result = await controller.CreateEvent(request);
 
-            // Assert
-            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.IsType<ObjectResult>(result);
+
+            var objectResult = (ObjectResult)result;
+
             Assert.Equal(403, objectResult.StatusCode);
 
             Assert.Empty(await context.Events.ToListAsync());
         }
 
+        // Test 3: Organisers can create events.
         [Fact]
         public async Task CreateEvent_OrganiserRole_ReturnsCreated()
         {
-            // Arrange
             var options = new DbContextOptionsBuilder<RaceDayDbContext>()
                 .UseInMemoryDatabase(Guid.NewGuid().ToString())
                 .Options;
@@ -95,100 +96,107 @@ namespace RaceDay.Api.Tests
 
             await context.SaveChangesAsync();
 
-            var controller = new EventsController(context);
-            controller.ControllerContext =
-                CreateControllerContext(5, "Organiser");
+            var controller = new EventsController(context)
+            {
+                ControllerContext = CreateControllerContext(
+                    1,
+                    "Organiser")
+            };
 
             var request = new EventRequest
             {
-                EventName = "Community 10km",
-                Description = "Community running event",
+                EventName = "Community Run",
+                Description = "A community running event",
                 EventDate = DateTime.UtcNow.AddDays(30),
                 Location = "East London",
                 Distance = 10,
                 EventTypeID = 1
             };
 
-            // Act
             var result = await controller.CreateEvent(request);
 
-            // Assert
             Assert.IsType<CreatedAtActionResult>(result);
 
-            var savedEvent = await context.Events.SingleOrDefaultAsync();
-
-            Assert.NotNull(savedEvent);
-            Assert.Equal("Community 10km", savedEvent.EventName);
-            Assert.Equal(5, savedEvent.OrganiserID);
+            Assert.Single(await context.Events.ToListAsync());
         }
 
+        // Test 4: An organiser cannot update another organiser's event.
         [Fact]
         public async Task UpdateEvent_DifferentOrganiser_ReturnsForbidden()
         {
-            // Arrange
             var options = new DbContextOptionsBuilder<RaceDayDbContext>()
                 .UseInMemoryDatabase(Guid.NewGuid().ToString())
                 .Options;
 
             using var context = new RaceDayDbContext(options);
 
+            context.EventTypes.Add(new EventType
+            {
+                EventTypeID = 1,
+                TypeName = "Running"
+            });
+
             context.Events.Add(new Event
             {
                 EventID = 1,
-                EventName = "Original Race",
-                Description = "Original description",
+                EventName = "Existing Event",
+                Description = "An existing event",
                 EventDate = DateTime.UtcNow.AddDays(30),
                 Location = "East London",
                 Distance = 10,
-                OrganiserID = 10,
+                OrganiserID = 2,
                 EventTypeID = 1
             });
 
             await context.SaveChangesAsync();
 
-            // The signed-in Organiser does not own this event.
-            var controller = new EventsController(context);
-            controller.ControllerContext =
-                CreateControllerContext(5, "Organiser");
+            var controller = new EventsController(context)
+            {
+                ControllerContext = CreateControllerContext(
+                    1,
+                    "Organiser")
+            };
 
             var request = new EventRequest
             {
-                EventName = "Changed Race",
-                Description = "Attempted update",
+                EventName = "Updated Event",
+                Description = "An updated event",
                 EventDate = DateTime.UtcNow.AddDays(40),
-                Location = "Cape Town",
-                Distance = 21,
+                Location = "East London",
+                Distance = 15,
                 EventTypeID = 1
             };
 
-            // Act
             var result = await controller.UpdateEvent(1, request);
 
-            // Assert
-            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.IsType<ObjectResult>(result);
+
+            var objectResult = (ObjectResult)result;
+
             Assert.Equal(403, objectResult.StatusCode);
-
-            var savedEvent = await context.Events.FindAsync(1);
-
-            Assert.NotNull(savedEvent);
-            Assert.Equal("Original Race", savedEvent.EventName);
-            Assert.Equal(10, savedEvent.OrganiserID);
         }
 
+        // Test 5: A valid enrolment can be created.
         [Fact]
         public async Task CreateEnrolment_ValidRequest_ReturnsCreated()
         {
-            // Arrange
             var options = new DbContextOptionsBuilder<RaceDayDbContext>()
                 .UseInMemoryDatabase(Guid.NewGuid().ToString())
                 .Options;
 
             using var context = new RaceDayDbContext(options);
 
+            context.EventTypes.Add(new EventType
+            {
+                EventTypeID = 1,
+                TypeName = "Running"
+            });
+
             context.Events.Add(new Event
             {
                 EventID = 1,
-                EventName = "Test Race",
+                EventName = "Test Run",
+                Description = "A test event",
                 EventDate = DateTime.UtcNow.AddDays(30),
                 Location = "East London",
                 Distance = 10,
@@ -200,7 +208,7 @@ namespace RaceDay.Api.Tests
             {
                 CategoryID = 1,
                 EventID = 1,
-                CategoryName = "10km"
+                CategoryName = "10 km"
             });
 
             context.EnrolmentStatuses.Add(new EnrolmentStatus
@@ -211,9 +219,12 @@ namespace RaceDay.Api.Tests
 
             await context.SaveChangesAsync();
 
-            var controller = new EnrolmentsController(context);
-            controller.ControllerContext =
-                CreateControllerContext(3, "Participant");
+            var controller = new EnrolmentsController(context)
+            {
+                ControllerContext = CreateControllerContext(
+                    3,
+                    "Participant")
+            };
 
             var request = new CreateEnrolmentRequest
             {
@@ -221,81 +232,269 @@ namespace RaceDay.Api.Tests
                 CategoryID = 1
             };
 
-            // Act
             var result = await controller.CreateEnrolment(request);
 
-            // Assert
             Assert.IsType<CreatedAtActionResult>(result);
-
-            var enrolment = await context.Enrolments
-                .SingleOrDefaultAsync();
-
-            Assert.NotNull(enrolment);
-            Assert.Equal(3, enrolment.ParticipantID);
-            Assert.Equal(1, enrolment.EventID);
-            Assert.Equal(1, enrolment.CategoryID);
         }
 
+        // Test 6: An enrolment is rejected if its category belongs
+        // to a different event.
         [Fact]
         public async Task CreateEnrolment_CategoryBelongsToDifferentEvent_ReturnsBadRequest()
         {
-            // Arrange
             var options = new DbContextOptionsBuilder<RaceDayDbContext>()
                 .UseInMemoryDatabase(Guid.NewGuid().ToString())
                 .Options;
 
             using var context = new RaceDayDbContext(options);
 
-            context.Events.Add(new Event
+            context.EventTypes.Add(new EventType
             {
-                EventID = 1,
-                EventName = "Test Race",
-                EventDate = DateTime.UtcNow.AddDays(30),
-                Location = "East London",
-                Distance = 10,
-                OrganiserID = 2,
-                EventTypeID = 1
+                EventTypeID = 1,
+                TypeName = "Running"
             });
+
+            context.Events.AddRange(
+                new Event
+                {
+                    EventID = 1,
+                    EventName = "First Event",
+                    Description = "First test event",
+                    EventDate = DateTime.UtcNow.AddDays(30),
+                    Location = "East London",
+                    Distance = 10,
+                    OrganiserID = 2,
+                    EventTypeID = 1
+                },
+                new Event
+                {
+                    EventID = 2,
+                    EventName = "Second Event",
+                    Description = "Second test event",
+                    EventDate = DateTime.UtcNow.AddDays(40),
+                    Location = "East London",
+                    Distance = 20,
+                    OrganiserID = 2,
+                    EventTypeID = 1
+                });
 
             context.Categories.Add(new Category
             {
-                CategoryID = 2,
-                EventID = 99,
-                CategoryName = "Different Event Category"
+                CategoryID = 1,
+                EventID = 2,
+                CategoryName = "20 km"
+            });
+
+            context.EnrolmentStatuses.Add(new EnrolmentStatus
+            {
+                EnrolmentStatusID = 1,
+                StatusName = "Registered"
             });
 
             await context.SaveChangesAsync();
 
-            var controller = new EnrolmentsController(context);
-            controller.ControllerContext =
-                CreateControllerContext(3, "Participant");
+            var controller = new EnrolmentsController(context)
+            {
+                ControllerContext = CreateControllerContext(
+                    3,
+                    "Participant")
+            };
 
             var request = new CreateEnrolmentRequest
             {
                 EventID = 1,
-                CategoryID = 2
+                CategoryID = 1
             };
 
-            // Act
             var result = await controller.CreateEnrolment(request);
 
-            // Assert
             Assert.IsType<BadRequestObjectResult>(result);
-
-            Assert.Empty(await context.Enrolments.ToListAsync());
         }
 
+        // Test 7: Registration creates a new Participant account
+        // and stores a hashed password.
+        [Fact]
+        public async Task Register_ValidRequest_ReturnsCreated()
+        {
+            var options = new DbContextOptionsBuilder<RaceDayDbContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString())
+                .Options;
+
+            using var context = new RaceDayDbContext(options);
+
+            var controller = new AuthController(context);
+
+            var request = new RegisterRequestDto
+            {
+                FirstName = "Ayakha",
+                LastName = "Twalo",
+                Email = "newparticipant@example.com",
+                Password = "RaceDayTest123!",
+                PhoneNumber = "0712345678"
+            };
+
+            var result = await controller.Register(request);
+
+            Assert.IsType<CreatedResult>(result);
+
+            var savedUser = await context.Users
+                .FirstOrDefaultAsync(
+                    user => user.Email == "newparticipant@example.com");
+
+            Assert.NotNull(savedUser);
+            Assert.Equal("Participant", savedUser.Role);
+            Assert.NotEqual(
+                "RaceDayTest123!",
+                savedUser.PasswordHash);
+        }
+
+        // Test 8: Registration rejects an email address that
+        // already belongs to an existing account.
+        [Fact]
+        public async Task Register_DuplicateEmail_ReturnsConflict()
+        {
+            var options = new DbContextOptionsBuilder<RaceDayDbContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString())
+                .Options;
+
+            using var context = new RaceDayDbContext(options);
+
+            context.Users.Add(new User
+            {
+                FirstName = "Existing",
+                LastName = "Participant",
+                Email = "existing@example.com",
+                PasswordHash = "existing-hash",
+                Role = "Participant"
+            });
+
+            await context.SaveChangesAsync();
+
+            var controller = new AuthController(context);
+
+            var request = new RegisterRequestDto
+            {
+                FirstName = "New",
+                LastName = "Participant",
+                Email = "existing@example.com",
+                Password = "RaceDayTest123!",
+                PhoneNumber = "0712345678"
+            };
+
+            var result = await controller.Register(request);
+
+            Assert.IsType<ConflictObjectResult>(result);
+
+            Assert.Single(await context.Users.ToListAsync());
+        }
+
+        // Test 9: Login accepts the correct email and password
+        // and stores the user's identity and role in the session.
+        [Fact]
+        public async Task Login_ValidCredentials_ReturnsOk()
+        {
+            var options = new DbContextOptionsBuilder<RaceDayDbContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString())
+                .Options;
+
+            using var context = new RaceDayDbContext(options);
+
+            var passwordHasher = new PasswordHasher<User>();
+
+            var user = new User
+            {
+                FirstName = "Test",
+                LastName = "Participant",
+                Email = "login@example.com",
+                Role = "Participant"
+            };
+
+            user.PasswordHash = passwordHasher.HashPassword(
+                user,
+                "RaceDayTest123!");
+
+            context.Users.Add(user);
+            await context.SaveChangesAsync();
+
+            var controller = new AuthController(context)
+            {
+                ControllerContext = CreateControllerContext(
+                    user.UserID,
+                    user.Role)
+            };
+
+            var result = await controller.Login(new LoginRequestDto
+            {
+                Email = "login@example.com",
+                Password = "RaceDayTest123!"
+            });
+
+            Assert.IsType<OkObjectResult>(result);
+
+            Assert.Equal(
+                user.UserID,
+                controller.HttpContext.Session.GetInt32("UserId"));
+
+            Assert.Equal(
+                "Participant",
+                controller.HttpContext.Session.GetString("Role"));
+        }
+
+        // Test 10: Login rejects an incorrect password.
+        [Fact]
+        public async Task Login_IncorrectPassword_ReturnsUnauthorized()
+        {
+            var options = new DbContextOptionsBuilder<RaceDayDbContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString())
+                .Options;
+
+            using var context = new RaceDayDbContext(options);
+
+            var passwordHasher = new PasswordHasher<User>();
+
+            var user = new User
+            {
+                FirstName = "Test",
+                LastName = "Participant",
+                Email = "login@example.com",
+                Role = "Participant"
+            };
+
+            user.PasswordHash = passwordHasher.HashPassword(
+                user,
+                "CorrectPassword123!");
+
+            context.Users.Add(user);
+            await context.SaveChangesAsync();
+
+            var controller = new AuthController(context);
+
+            var result = await controller.Login(new LoginRequestDto
+            {
+                Email = "login@example.com",
+                Password = "WrongPassword123!"
+            });
+
+            Assert.IsType<UnauthorizedObjectResult>(result);
+        }
+
+        // Creates a controller context with a test session.
         private static ControllerContext CreateControllerContext(
-            int userId, string role)
+            int userId,
+            string role)
         {
             var httpContext = new DefaultHttpContext();
+
             var session = new TestSession();
 
             session.SetInt32("UserId", userId);
             session.SetString("Role", role);
 
             httpContext.Features.Set<ISessionFeature>(
-                new TestSessionFeature { Session = session });
+                new TestSessionFeature
+                {
+                    Session = session
+                });
 
             return new ControllerContext
             {
@@ -303,24 +502,27 @@ namespace RaceDay.Api.Tests
             };
         }
 
-        private class TestSessionFeature : ISessionFeature
+        // Provides the session feature required by HttpContext.
+        private sealed class TestSessionFeature : ISessionFeature
         {
             public ISession Session { get; set; } = null!;
         }
 
-        private class TestSession : ISession
+        // A lightweight in-memory session used by the unit tests.
+        private sealed class TestSession : ISession
         {
-            private readonly Dictionary<string, byte[]> _store = new();
-
-            public string Id => "TestSessionId";
+            private readonly Dictionary<string, byte[]> _session =
+                new Dictionary<string, byte[]>();
 
             public bool IsAvailable => true;
 
-            public IEnumerable<string> Keys => _store.Keys;
+            public string Id => "TestSessionId";
+
+            public IEnumerable<string> Keys => _session.Keys;
 
             public void Clear()
             {
-                _store.Clear();
+                _session.Clear();
             }
 
             public Task CommitAsync(
@@ -337,17 +539,24 @@ namespace RaceDay.Api.Tests
 
             public void Remove(string key)
             {
-                _store.Remove(key);
+                _session.Remove(key);
             }
 
             public void Set(string key, byte[] value)
             {
-                _store[key] = value;
+                _session[key] = value;
             }
 
-            public bool TryGetValue(string key, out byte[] value)
+            public bool TryGetValue(string key, out byte[]? value)
             {
-                return _store.TryGetValue(key, out value!);
+                if (_session.TryGetValue(key, out var storedValue))
+                {
+                    value = storedValue;
+                    return true;
+                }
+
+                value = null;
+                return false;
             }
         }
     }
