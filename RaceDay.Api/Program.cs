@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using RaceDay.Api.Data;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -25,6 +26,7 @@ builder.Services.AddSession(options =>
 });
 
 var app = builder.Build();
+
 
 if (app.Environment.IsDevelopment())
 {
