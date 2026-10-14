@@ -54,8 +54,8 @@ namespace RaceDay.Api.Tests
             using var context = new RaceDayDbContext(options);
 
             var controller = new EventsController(context);
-            controller.ControllerContext = CreateControllerContext(
-                1, "Participant");
+            controller.ControllerContext =
+                CreateControllerContext(1, "Participant");
 
             var request = new EventRequest
             {
@@ -73,6 +73,106 @@ namespace RaceDay.Api.Tests
             // Assert
             var objectResult = Assert.IsType<ObjectResult>(result);
             Assert.Equal(403, objectResult.StatusCode);
+
+            Assert.Empty(await context.Events.ToListAsync());
+        }
+
+        [Fact]
+        public async Task CreateEvent_OrganiserRole_ReturnsCreated()
+        {
+            // Arrange
+            var options = new DbContextOptionsBuilder<RaceDayDbContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString())
+                .Options;
+
+            using var context = new RaceDayDbContext(options);
+
+            context.EventTypes.Add(new EventType
+            {
+                EventTypeID = 1,
+                TypeName = "Running"
+            });
+
+            await context.SaveChangesAsync();
+
+            var controller = new EventsController(context);
+            controller.ControllerContext =
+                CreateControllerContext(5, "Organiser");
+
+            var request = new EventRequest
+            {
+                EventName = "Community 10km",
+                Description = "Community running event",
+                EventDate = DateTime.UtcNow.AddDays(30),
+                Location = "East London",
+                Distance = 10,
+                EventTypeID = 1
+            };
+
+            // Act
+            var result = await controller.CreateEvent(request);
+
+            // Assert
+            Assert.IsType<CreatedAtActionResult>(result);
+
+            var savedEvent = await context.Events.SingleOrDefaultAsync();
+
+            Assert.NotNull(savedEvent);
+            Assert.Equal("Community 10km", savedEvent.EventName);
+            Assert.Equal(5, savedEvent.OrganiserID);
+        }
+
+        [Fact]
+        public async Task UpdateEvent_DifferentOrganiser_ReturnsForbidden()
+        {
+            // Arrange
+            var options = new DbContextOptionsBuilder<RaceDayDbContext>()
+                .UseInMemoryDatabase(Guid.NewGuid().ToString())
+                .Options;
+
+            using var context = new RaceDayDbContext(options);
+
+            context.Events.Add(new Event
+            {
+                EventID = 1,
+                EventName = "Original Race",
+                Description = "Original description",
+                EventDate = DateTime.UtcNow.AddDays(30),
+                Location = "East London",
+                Distance = 10,
+                OrganiserID = 10,
+                EventTypeID = 1
+            });
+
+            await context.SaveChangesAsync();
+
+            // The signed-in Organiser does not own this event.
+            var controller = new EventsController(context);
+            controller.ControllerContext =
+                CreateControllerContext(5, "Organiser");
+
+            var request = new EventRequest
+            {
+                EventName = "Changed Race",
+                Description = "Attempted update",
+                EventDate = DateTime.UtcNow.AddDays(40),
+                Location = "Cape Town",
+                Distance = 21,
+                EventTypeID = 1
+            };
+
+            // Act
+            var result = await controller.UpdateEvent(1, request);
+
+            // Assert
+            var objectResult = Assert.IsType<ObjectResult>(result);
+            Assert.Equal(403, objectResult.StatusCode);
+
+            var savedEvent = await context.Events.FindAsync(1);
+
+            Assert.NotNull(savedEvent);
+            Assert.Equal("Original Race", savedEvent.EventName);
+            Assert.Equal(10, savedEvent.OrganiserID);
         }
 
         [Fact]
@@ -112,8 +212,8 @@ namespace RaceDay.Api.Tests
             await context.SaveChangesAsync();
 
             var controller = new EnrolmentsController(context);
-            controller.ControllerContext = CreateControllerContext(
-                3, "Participant");
+            controller.ControllerContext =
+                CreateControllerContext(3, "Participant");
 
             var request = new CreateEnrolmentRequest
             {
@@ -167,8 +267,8 @@ namespace RaceDay.Api.Tests
             await context.SaveChangesAsync();
 
             var controller = new EnrolmentsController(context);
-            controller.ControllerContext = CreateControllerContext(
-                3, "Participant");
+            controller.ControllerContext =
+                CreateControllerContext(3, "Participant");
 
             var request = new CreateEnrolmentRequest
             {
