@@ -63,7 +63,10 @@ namespace RaceDay.Api.Controllers
                 return Unauthorized(new { message = "Please log in first." });
 
             if (role != "Organiser")
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = "You do not have permission to perform this action."
+                });
 
             var eventItem = await _context.Events
                 .FirstOrDefaultAsync(e => e.EventID == request.EventID);
@@ -72,7 +75,10 @@ namespace RaceDay.Api.Controllers
                 return NotFound(new { message = "Event not found." });
 
             if (eventItem.OrganiserID != userId.Value)
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = "You do not have permission to perform this action."
+                });
 
             var category = new Category
             {
@@ -102,7 +108,10 @@ namespace RaceDay.Api.Controllers
                 return Unauthorized(new { message = "Please log in first." });
 
             if (role != "Organiser")
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = "You do not have permission to perform this action."
+                });
 
             var category = await _context.Categories
                 .Include(c => c.Event)
@@ -112,7 +121,10 @@ namespace RaceDay.Api.Controllers
                 return NotFound(new { message = "Category not found." });
 
             if (category.Event.OrganiserID != userId.Value)
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = "You do not have permission to perform this action."
+                });
 
             if (category.EventID != request.EventID)
             {
@@ -123,7 +135,10 @@ namespace RaceDay.Api.Controllers
                     return NotFound(new { message = "Target event not found." });
 
                 if (targetEvent.OrganiserID != userId.Value)
-                    return Forbid();
+                    return StatusCode(403, new
+                    {
+                        message = "You do not have permission to perform this action."
+                    });
             }
 
             category.EventID = request.EventID;
@@ -145,7 +160,10 @@ namespace RaceDay.Api.Controllers
                 return Unauthorized(new { message = "Please log in first." });
 
             if (role != "Organiser")
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = "You do not have permission to perform this action."
+                });
 
             var category = await _context.Categories
                 .Include(c => c.Event)
@@ -155,7 +173,10 @@ namespace RaceDay.Api.Controllers
                 return NotFound(new { message = "Category not found." });
 
             if (category.Event.OrganiserID != userId.Value)
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = "You do not have permission to perform this action."
+                });
 
             if (await _context.Enrolments.AnyAsync(
                 e => e.CategoryID == id))

@@ -11,7 +11,7 @@ namespace RaceDay.Api.Controllers
     {
         private readonly RaceDayDbContext _context;
 
-        public EnrolmentsController(RaceDayDbContext context)
+    public EnrolmentsController(RaceDayDbContext context)
         {
             _context = context;
         }
@@ -24,10 +24,20 @@ namespace RaceDay.Api.Controllers
             string? role = HttpContext.Session.GetString("Role");
 
             if (userId == null || role == null)
-                return Unauthorized(new { message = "Please log in first." });
+            {
+                return Unauthorized(new
+                {
+                    message = "Please log in first."
+                });
+            }
 
             if (role != "Participant")
-                return Forbid();
+            {
+                return StatusCode(403, new
+                {
+                    message = "Only Participants can view their own enrolments."
+                });
+            }
 
             var enrolments = await _context.Enrolments
                 .Where(e => e.ParticipantID == userId.Value)
@@ -55,16 +65,31 @@ namespace RaceDay.Api.Controllers
             string? role = HttpContext.Session.GetString("Role");
 
             if (userId == null || role == null)
-                return Unauthorized(new { message = "Please log in first." });
+            {
+                return Unauthorized(new
+                {
+                    message = "Please log in first."
+                });
+            }
 
             if (role != "Participant")
-                return Forbid();
+            {
+                return StatusCode(403, new
+                {
+                    message = "Only Participants can enrol in events."
+                });
+            }
 
             var eventItem = await _context.Events
                 .FirstOrDefaultAsync(e => e.EventID == request.EventID);
 
             if (eventItem == null)
-                return NotFound(new { message = "Event not found." });
+            {
+                return NotFound(new
+                {
+                    message = "Event not found."
+                });
+            }
 
             if (eventItem.EventDate <= DateTime.UtcNow)
             {
@@ -125,6 +150,7 @@ namespace RaceDay.Api.Controllers
 
             return CreatedAtAction(
                 nameof(GetMyEnrolments),
+                null,
                 new
                 {
                     message = "Enrolment created successfully.",
@@ -143,19 +169,39 @@ namespace RaceDay.Api.Controllers
             string? role = HttpContext.Session.GetString("Role");
 
             if (userId == null || role == null)
-                return Unauthorized(new { message = "Please log in first." });
+            {
+                return Unauthorized(new
+                {
+                    message = "Please log in first."
+                });
+            }
 
             if (role != "Organiser")
-                return Forbid();
+            {
+                return StatusCode(403, new
+                {
+                    message = "Only Organisers can view event enrolments."
+                });
+            }
 
             var eventItem = await _context.Events
                 .FirstOrDefaultAsync(e => e.EventID == eventId);
 
             if (eventItem == null)
-                return NotFound(new { message = "Event not found." });
+            {
+                return NotFound(new
+                {
+                    message = "Event not found."
+                });
+            }
 
             if (eventItem.OrganiserID != userId.Value)
-                return Forbid();
+            {
+                return StatusCode(403, new
+                {
+                    message = "You can only view enrolments for your own events."
+                });
+            }
 
             var enrolments = await _context.Enrolments
                 .Where(e => e.EventID == eventId)
@@ -163,8 +209,9 @@ namespace RaceDay.Api.Controllers
                 {
                     e.EnrolmentID,
                     e.ParticipantID,
-                    ParticipantName = e.Participant.FirstName + " " +
-                                      e.Participant.LastName,
+                    ParticipantName =
+                        e.Participant.FirstName + " " +
+                        e.Participant.LastName,
                     e.CategoryID,
                     CategoryName = e.Category.CategoryName,
                     e.EnrolmentDate,
@@ -178,26 +225,47 @@ namespace RaceDay.Api.Controllers
         // Organisers can update enrolment status for their own events.
         [HttpPut("{id:int}/status")]
         public async Task<IActionResult> UpdateEnrolmentStatus(
-            int id, [FromBody] UpdateEnrolmentStatusRequest request)
+            int id,
+            [FromBody] UpdateEnrolmentStatusRequest request)
         {
             int? userId = HttpContext.Session.GetInt32("UserId");
             string? role = HttpContext.Session.GetString("Role");
 
             if (userId == null || role == null)
-                return Unauthorized(new { message = "Please log in first." });
+            {
+                return Unauthorized(new
+                {
+                    message = "Please log in first."
+                });
+            }
 
             if (role != "Organiser")
-                return Forbid();
+            {
+                return StatusCode(403, new
+                {
+                    message = "Only Organisers can update enrolment statuses."
+                });
+            }
 
             var enrolment = await _context.Enrolments
                 .Include(e => e.Event)
                 .FirstOrDefaultAsync(e => e.EnrolmentID == id);
 
             if (enrolment == null)
-                return NotFound(new { message = "Enrolment not found." });
+            {
+                return NotFound(new
+                {
+                    message = "Enrolment not found."
+                });
+            }
 
             if (enrolment.Event.OrganiserID != userId.Value)
-                return Forbid();
+            {
+                return StatusCode(403, new
+                {
+                    message = "You can only update enrolments for your own events."
+                });
+            }
 
             var status = await _context.EnrolmentStatuses
                 .FirstOrDefaultAsync(s => s.StatusName == request.StatusName);
@@ -213,13 +281,17 @@ namespace RaceDay.Api.Controllers
             enrolment.EnrolmentStatusID = status.EnrolmentStatusID;
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Enrolment status updated successfully." });
+            return Ok(new
+            {
+                message = "Enrolment status updated successfully."
+            });
         }
     }
 
     public class CreateEnrolmentRequest
     {
         public int EventID { get; set; }
+
         public int CategoryID { get; set; }
     }
 
@@ -227,4 +299,5 @@ namespace RaceDay.Api.Controllers
     {
         public string StatusName { get; set; } = string.Empty;
     }
+
 }

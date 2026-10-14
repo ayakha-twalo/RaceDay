@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RaceDay.Api.Data;
 using RaceDay.Api.Models;
@@ -15,7 +16,7 @@ namespace RaceDay.Api.Controllers
         public int EventTypeID { get; set; }
     }
 
-[ApiController]
+    [ApiController]
     [Route("api/[controller]")]
     public class EventsController : ControllerBase
     {
@@ -48,7 +49,7 @@ namespace RaceDay.Api.Controllers
             return Ok(events);
         }
 
-        // View one event.
+        // Anyone can view one event.
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetEvent(int id)
         {
@@ -69,12 +70,17 @@ namespace RaceDay.Api.Controllers
                 .FirstOrDefaultAsync();
 
             if (eventItem == null)
-                return NotFound(new { message = "Event not found." });
+            {
+                return NotFound(new
+                {
+                    message = "Event not found."
+                });
+            }
 
             return Ok(eventItem);
         }
 
-        // Organisers can create events.
+        // Only Organisers can create events.
         [HttpPost]
         public async Task<IActionResult> CreateEvent(
             [FromBody] EventRequest request)
@@ -83,19 +89,40 @@ namespace RaceDay.Api.Controllers
             string? role = HttpContext.Session.GetString("Role");
 
             if (userId == null || role == null)
-                return Unauthorized(new { message = "Please log in first." });
+            {
+                return Unauthorized(new
+                {
+                    message = "Please log in first."
+                });
+            }
 
             if (role != "Organiser")
-                return Forbid();
+            {
+                return StatusCode(403, new
+                {
+                    message = "Only Organisers can create events."
+                });
+            }
 
-            if (request.EventDate <= DateTime.UtcNow || request.Distance <= 0)
-                return BadRequest(new { message = "Check the event date and distance." });
+            if (request.EventDate <= DateTime.UtcNow ||
+                request.Distance <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Check the event date and distance."
+                });
+            }
 
             bool typeExists = await _context.EventTypes
                 .AnyAsync(t => t.EventTypeID == request.EventTypeID);
 
             if (!typeExists)
-                return BadRequest(new { message = "Event type does not exist." });
+            {
+                return BadRequest(new
+                {
+                    message = "Event type does not exist."
+                });
+            }
 
             var eventItem = new Event
             {
@@ -120,34 +147,66 @@ namespace RaceDay.Api.Controllers
         // Only the owning Organiser can update an event.
         [HttpPut("{id:int}")]
         public async Task<IActionResult> UpdateEvent(
-            int id, [FromBody] EventRequest request)
+            int id,
+            [FromBody] EventRequest request)
         {
             int? userId = HttpContext.Session.GetInt32("UserId");
             string? role = HttpContext.Session.GetString("Role");
 
             if (userId == null || role == null)
-                return Unauthorized(new { message = "Please log in first." });
+            {
+                return Unauthorized(new
+                {
+                    message = "Please log in first."
+                });
+            }
 
             if (role != "Organiser")
-                return Forbid();
+            {
+                return StatusCode(403, new
+                {
+                    message = "Only Organisers can update events."
+                });
+            }
 
             var eventItem = await _context.Events
                 .FirstOrDefaultAsync(e => e.EventID == id);
 
             if (eventItem == null)
-                return NotFound(new { message = "Event not found." });
+            {
+                return NotFound(new
+                {
+                    message = "Event not found."
+                });
+            }
 
             if (eventItem.OrganiserID != userId.Value)
-                return Forbid();
+            {
+                return StatusCode(403, new
+                {
+                    message = "You can only update your own events."
+                });
+            }
 
-            if (request.EventDate <= DateTime.UtcNow || request.Distance <= 0)
-                return BadRequest(new { message = "Check the event date and distance." });
+            if (request.EventDate <= DateTime.UtcNow ||
+                request.Distance <= 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Check the event date and distance."
+                });
+            }
 
             bool typeExists = await _context.EventTypes
                 .AnyAsync(t => t.EventTypeID == request.EventTypeID);
 
             if (!typeExists)
-                return BadRequest(new { message = "Event type does not exist." });
+            {
+                return BadRequest(new
+                {
+                    message = "Event type does not exist."
+                });
+            }
 
             eventItem.EventName = request.EventName.Trim();
             eventItem.Description = request.Description;
@@ -158,7 +217,10 @@ namespace RaceDay.Api.Controllers
 
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Event updated successfully." });
+            return Ok(new
+            {
+                message = "Event updated successfully."
+            });
         }
 
         // Only the owning Organiser can delete an event.
@@ -169,19 +231,39 @@ namespace RaceDay.Api.Controllers
             string? role = HttpContext.Session.GetString("Role");
 
             if (userId == null || role == null)
-                return Unauthorized(new { message = "Please log in first." });
+            {
+                return Unauthorized(new
+                {
+                    message = "Please log in first."
+                });
+            }
 
             if (role != "Organiser")
-                return Forbid();
+            {
+                return StatusCode(403, new
+                {
+                    message = "Only Organisers can delete events."
+                });
+            }
 
             var eventItem = await _context.Events
                 .FirstOrDefaultAsync(e => e.EventID == id);
 
             if (eventItem == null)
-                return NotFound(new { message = "Event not found." });
+            {
+                return NotFound(new
+                {
+                    message = "Event not found."
+                });
+            }
 
             if (eventItem.OrganiserID != userId.Value)
-                return Forbid();
+            {
+                return StatusCode(403, new
+                {
+                    message = "You can only delete your own events."
+                });
+            }
 
             _context.Events.Remove(eventItem);
             await _context.SaveChangesAsync();
@@ -189,5 +271,4 @@ namespace RaceDay.Api.Controllers
             return NoContent();
         }
     }
-
 }
