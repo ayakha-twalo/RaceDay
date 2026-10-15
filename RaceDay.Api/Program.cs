@@ -14,6 +14,8 @@ builder.Services.AddDbContext<RaceDayDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection")));
 
+Console.WriteLine($"RaceDay database connection: {builder.Configuration.GetConnectionString("DefaultConnection")}");
+
 // Configure server-side session storage.
 builder.Services.AddDistributedMemoryCache();
 
@@ -24,6 +26,15 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 });
+
+Console.WriteLine(
+    $"RaceDay database: {builder.Configuration.GetConnectionString("DefaultConnection")}");
+
+Console.WriteLine(
+    $"Configured connection: {builder.Configuration.GetConnectionString("DefaultConnection")}");
+
+Console.WriteLine(
+    $"Environment: {builder.Environment.EnvironmentName}");
 
 var app = builder.Build();
 
