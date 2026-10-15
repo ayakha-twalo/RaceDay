@@ -1,24 +1,15 @@
-﻿
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RaceDay.Api.Data;
 using RaceDay.Api.Models;
+using RaceDay.Contracts.DTOs.Events;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace RaceDay.Api.Controllers
 {
-    public class EventRequest
-    {
-        public string EventName { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        public DateTime EventDate { get; set; }
-        public string Location { get; set; } = string.Empty;
-        public decimal Distance { get; set; }
-        public int EventTypeID { get; set; }
-    }
-
     [ApiController]
     [Route("api/[controller]")]
-    public class EventsController : ControllerBase
+    public class EventsController : RaceDayControllerBase
     {
         private readonly RaceDayDbContext _context;
 
@@ -27,101 +18,116 @@ namespace RaceDay.Api.Controllers
             _context = context;
         }
 
-        // Anyone can browse events.
+        // Shared query that turns Event rows into EventResponseDto objects.
+        private IQueryable<EventResponseDto> EventQuery()
+        {
+            return _context.Events.Select(e => new EventResponseDto
+            {
+                EventId = e.EventID,
+                EventName = e.EventName,
+                Description = e.Description,
+                EventDate = e.EventDate,
+                Location = e.Location,
+                Distance = e.Distance,
+                EventTypeId = e.EventTypeID,
+                EventTypeName = e.EventType.TypeName,
+                OrganiserId = e.OrganiserID
+            });
+        }
+
         [HttpGet]
+        [SwaggerOperation(
+            Summary = "Browse events",
+            Description = "Returns all RaceDay events. Open to everyone, as in the Part 1 plan.")]
+        [SwaggerResponse(200, "List of events.", typeof(List<EventResponseDto>))]
         public async Task<IActionResult> GetEvents()
         {
-            var events = await _context.Events
-                .Select(e => new
-                {
-                    e.EventID,
-                    e.EventName,
-                    e.Description,
-                    e.EventDate,
-                    e.Location,
-                    e.Distance,
-                    e.OrganiserID,
-                    e.EventTypeID,
-                    EventType = e.EventType.TypeName
-                })
+            var events = await EventQuery()
+                .OrderBy(e => e.EventDate)
                 .ToListAsync();
 
             return Ok(events);
         }
 
-        // Anyone can view one event.
+        [HttpGet("mine")]
+        [SwaggerOperation(
+            Summary = "View my events (Organiser)",
+            Description = "Returns only the events created by the logged-in Organiser.")]
+        [SwaggerResponse(200, "The Organiser's events.", typeof(List<EventResponseDto>))]
+        [SwaggerResponse(401, "Not logged in.")]
+        [SwaggerResponse(403, "Only Organisers can use this endpoint.")]
+        public async Task<IActionResult> GetMyEvents()
+        {
+            var denied = CheckAccess(
+                OrganiserRole,
+                "Only Organisers can view their own events.");
+            if (denied != null) return denied;
+
+            int userId = CurrentUserId!.Value;
+
+            var events = await EventQuery()
+                .Where(e => e.OrganiserId == userId)
+                .OrderBy(e => e.EventDate)
+                .ToListAsync();
+
+            return Ok(events);
+        }
+
         [HttpGet("{id:int}")]
+        [SwaggerOperation(
+            Summary = "View one event",
+            Description = "Returns the details of a single event by its id.")]
+        [SwaggerResponse(200, "The event.", typeof(EventResponseDto))]
+        [SwaggerResponse(404, "Event not found.")]
         public async Task<IActionResult> GetEvent(int id)
         {
-            var eventItem = await _context.Events
-                .Where(e => e.EventID == id)
-                .Select(e => new
-                {
-                    e.EventID,
-                    e.EventName,
-                    e.Description,
-                    e.EventDate,
-                    e.Location,
-                    e.Distance,
-                    e.OrganiserID,
-                    e.EventTypeID,
-                    EventType = e.EventType.TypeName
-                })
+            var eventItem = await EventQuery()
+                .Where(e => e.EventId == id)
                 .FirstOrDefaultAsync();
 
             if (eventItem == null)
             {
-                return NotFound(new
-                {
-                    message = "Event not found."
-                });
+                return NotFound(new { message = "Event not found." });
             }
 
             return Ok(eventItem);
         }
 
-        // Only Organisers can create events.
         [HttpPost]
+        [SwaggerOperation(
+            Summary = "Create an event (Organiser)",
+            Description =
+                "Creates an event owned by the logged-in Organiser. " +
+                "EventTypeId: 1 = Run, 2 = Walk, 3 = Cycle. " +
+                "The date must be in the future and the distance above zero.")]
+        [SwaggerResponse(201, "Event created.", typeof(EventResponseDto))]
+        [SwaggerResponse(400, "Invalid date, distance or event type.")]
+        [SwaggerResponse(401, "Not logged in.")]
+        [SwaggerResponse(403, "Only Organisers can create events.")]
         public async Task<IActionResult> CreateEvent(
-            [FromBody] EventRequest request)
+            [FromBody] CreateEventRequestDto request)
         {
-            int? userId = HttpContext.Session.GetInt32("UserId");
-            string? role = HttpContext.Session.GetString("Role");
+            var denied = CheckAccess(
+                OrganiserRole,
+                "Only Organisers can create events.");
+            if (denied != null) return denied;
 
-            if (userId == null || role == null)
-            {
-                return Unauthorized(new
-                {
-                    message = "Please log in first."
-                });
-            }
+            int userId = CurrentUserId!.Value;
 
-            if (role != "Organiser")
-            {
-                return StatusCode(403, new
-                {
-                    message = "Only Organisers can create events."
-                });
-            }
-
-            if (request.EventDate <= DateTime.UtcNow ||
-                request.Distance <= 0)
+            if (request.EventDate <= DateTime.UtcNow || request.Distance <= 0)
             {
                 return BadRequest(new
                 {
-                    message = "Check the event date and distance."
+                    message = "The event date must be in the future and the distance must be above zero."
                 });
             }
 
-            bool typeExists = await _context.EventTypes
-                .AnyAsync(t => t.EventTypeID == request.EventTypeID);
+            var eventType = await _context.EventTypes
+                .FirstOrDefaultAsync(t => t.EventTypeID == request.EventTypeId);
 
-            if (!typeExists)
+            if (eventType == null)
             {
-                return BadRequest(new
-                {
-                    message = "Event type does not exist."
-                });
+                return BadRequest(new { message = "Event type does not exist." });
             }
 
             var eventItem = new Event
@@ -131,8 +137,8 @@ namespace RaceDay.Api.Controllers
                 EventDate = request.EventDate,
                 Location = request.Location.Trim(),
                 Distance = request.Distance,
-                OrganiserID = userId.Value,
-                EventTypeID = request.EventTypeID
+                OrganiserID = userId,
+                EventTypeID = request.EventTypeId
             };
 
             _context.Events.Add(eventItem);
@@ -141,71 +147,64 @@ namespace RaceDay.Api.Controllers
             return CreatedAtAction(
                 nameof(GetEvent),
                 new { id = eventItem.EventID },
-                eventItem);
+                ToResponse(eventItem, eventType.TypeName));
         }
 
-        // Only the owning Organiser can update an event.
         [HttpPut("{id:int}")]
+        [SwaggerOperation(
+            Summary = "Update an event (owning Organiser)",
+            Description = "Only the Organiser who created the event can update it.")]
+        [SwaggerResponse(200, "The updated event.", typeof(EventResponseDto))]
+        [SwaggerResponse(400, "Invalid date, distance or event type.")]
+        [SwaggerResponse(401, "Not logged in.")]
+        [SwaggerResponse(403, "Not an Organiser, or not the owner of this event.")]
+        [SwaggerResponse(404, "Event not found.")]
         public async Task<IActionResult> UpdateEvent(
             int id,
-            [FromBody] EventRequest request)
+            [FromBody] UpdateEventRequestDto request)
         {
-            int? userId = HttpContext.Session.GetInt32("UserId");
-            string? role = HttpContext.Session.GetString("Role");
+            var denied = CheckAccess(
+                OrganiserRole,
+                "Only Organisers can update events.");
+            if (denied != null) return denied;
 
-            if (userId == null || role == null)
-            {
-                return Unauthorized(new
-                {
-                    message = "Please log in first."
-                });
-            }
-
-            if (role != "Organiser")
-            {
-                return StatusCode(403, new
-                {
-                    message = "Only Organisers can update events."
-                });
-            }
+            int userId = CurrentUserId!.Value;
 
             var eventItem = await _context.Events
                 .FirstOrDefaultAsync(e => e.EventID == id);
 
             if (eventItem == null)
             {
-                return NotFound(new
-                {
-                    message = "Event not found."
-                });
+                return NotFound(new { message = "Event not found." });
             }
 
-            if (eventItem.OrganiserID != userId.Value)
+            if (eventItem.OrganiserID != userId)
             {
-                return StatusCode(403, new
+                return StatusCode(StatusCodes.Status403Forbidden, new
                 {
                     message = "You can only update your own events."
                 });
             }
 
-            if (request.EventDate <= DateTime.UtcNow ||
+            // A new date must be in the future. Keeping the existing date
+            // is always allowed, so an event can still be edited later.
+            bool dateChanged = request.EventDate.Date != eventItem.EventDate.Date;
+
+            if ((dateChanged && request.EventDate <= DateTime.UtcNow) ||
                 request.Distance <= 0)
             {
                 return BadRequest(new
                 {
-                    message = "Check the event date and distance."
+                    message = "The event date must be in the future and the distance must be above zero."
                 });
             }
 
-            bool typeExists = await _context.EventTypes
-                .AnyAsync(t => t.EventTypeID == request.EventTypeID);
+            var eventType = await _context.EventTypes
+                .FirstOrDefaultAsync(t => t.EventTypeID == request.EventTypeId);
 
-            if (!typeExists)
+            if (eventType == null)
             {
-                return BadRequest(new
-                {
-                    message = "Event type does not exist."
-                });
+                return BadRequest(new { message = "Event type does not exist." });
             }
 
             eventItem.EventName = request.EventName.Trim();
@@ -213,55 +212,57 @@ namespace RaceDay.Api.Controllers
             eventItem.EventDate = request.EventDate;
             eventItem.Location = request.Location.Trim();
             eventItem.Distance = request.Distance;
-            eventItem.EventTypeID = request.EventTypeID;
+            eventItem.EventTypeID = request.EventTypeId;
 
             await _context.SaveChangesAsync();
 
-            return Ok(new
-            {
-                message = "Event updated successfully."
-            });
+            return Ok(ToResponse(eventItem, eventType.TypeName));
         }
 
-        // Only the owning Organiser can delete an event.
         [HttpDelete("{id:int}")]
+        [SwaggerOperation(
+            Summary = "Delete an event (owning Organiser)",
+            Description =
+                "Only the Organiser who created the event can delete it. " +
+                "Events that already have enrolments cannot be deleted.")]
+        [SwaggerResponse(204, "Event deleted.")]
+        [SwaggerResponse(401, "Not logged in.")]
+        [SwaggerResponse(403, "Not an Organiser, or not the owner of this event.")]
+        [SwaggerResponse(404, "Event not found.")]
+        [SwaggerResponse(409, "The event has enrolments and cannot be deleted.")]
         public async Task<IActionResult> DeleteEvent(int id)
         {
-            int? userId = HttpContext.Session.GetInt32("UserId");
-            string? role = HttpContext.Session.GetString("Role");
+            var denied = CheckAccess(
+                OrganiserRole,
+                "Only Organisers can delete events.");
+            if (denied != null) return denied;
 
-            if (userId == null || role == null)
-            {
-                return Unauthorized(new
-                {
-                    message = "Please log in first."
-                });
-            }
-
-            if (role != "Organiser")
-            {
-                return StatusCode(403, new
-                {
-                    message = "Only Organisers can delete events."
-                });
-            }
+            int userId = CurrentUserId!.Value;
 
             var eventItem = await _context.Events
                 .FirstOrDefaultAsync(e => e.EventID == id);
 
             if (eventItem == null)
             {
-                return NotFound(new
+                return NotFound(new { message = "Event not found." });
+            }
+
+            if (eventItem.OrganiserID != userId)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
                 {
-                    message = "Event not found."
+                    message = "You can only delete your own events."
                 });
             }
 
-            if (eventItem.OrganiserID != userId.Value)
+            bool hasEnrolments = await _context.Enrolments
+                .AnyAsync(e => e.EventID == id);
+
+            if (hasEnrolments)
             {
-                return StatusCode(403, new
+                return Conflict(new
                 {
-                    message = "You can only delete your own events."
+                    message = "This event already has enrolments and cannot be deleted."
                 });
             }
 
@@ -269,6 +270,24 @@ namespace RaceDay.Api.Controllers
             await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+
+        private static EventResponseDto ToResponse(
+            Event eventItem,
+            string eventTypeName)
+        {
+            return new EventResponseDto
+            {
+                EventId = eventItem.EventID,
+                EventName = eventItem.EventName,
+                Description = eventItem.Description,
+                EventDate = eventItem.EventDate,
+                Location = eventItem.Location,
+                Distance = eventItem.Distance,
+                EventTypeId = eventItem.EventTypeID,
+                EventTypeName = eventTypeName,
+                OrganiserId = eventItem.OrganiserID
+            };
         }
     }
 }

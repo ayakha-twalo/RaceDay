@@ -1,15 +1,16 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace RaceDay.Contracts.DTOs.Events
 {
+    /// <summary>New details for an existing event.</summary>
     public class UpdateEventRequestDto
     {
         [Required]
-        [StringLength(150)]
+        [StringLength(100)]
         public string EventName { get; set; } = string.Empty;
 
-    [Required]
-        public int EventTypeId { get; set; }
+        [StringLength(500)]
+        public string? Description { get; set; }
 
         [Required]
         public DateTime EventDate { get; set; }
@@ -18,7 +19,11 @@ namespace RaceDay.Contracts.DTOs.Events
         [StringLength(150)]
         public string Location { get; set; } = string.Empty;
 
-        public string? Description { get; set; }
-    }
+        /// <summary>Distance in kilometres.</summary>
+        [Range(0.01, 9999.99)]
+        public decimal Distance { get; set; }
 
+        /// <summary>1 = Run, 2 = Walk, 3 = Cycle.</summary>
+        public int EventTypeId { get; set; }
+    }
 }

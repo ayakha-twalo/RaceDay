@@ -1,82 +1,64 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RaceDay.Api.Data;
 using RaceDay.Api.Models;
+using RaceDay.Contracts.DTOs.Results;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace RaceDay.Api.Controllers
 {
+    // Routes follow the Part 1 endpoint plan:
+    //   POST /api/enrolments/{enrolmentId}/result
+    //   GET  /api/results/me
+    // plus GET /api/results/event/{eventId} so Organisers can review results.
     [ApiController]
-    [Route("api/[controller]")]
-    public class ResultsController : ControllerBase
+    public class ResultsController : RaceDayControllerBase
     {
         private readonly RaceDayDbContext _context;
 
-    public ResultsController(RaceDayDbContext context)
+        public ResultsController(RaceDayDbContext context)
         {
             _context = context;
         }
 
-        // Participants can view their own race results.
-        [HttpGet("my")]
-        public async Task<IActionResult> GetMyResults()
+        private static IQueryable<ResultResponseDto> ToResponses(
+            IQueryable<Result> results)
         {
-            int? userId = HttpContext.Session.GetInt32("UserId");
-            string? role = HttpContext.Session.GetString("Role");
-
-            if (userId == null || role == null)
+            return results.Select(r => new ResultResponseDto
             {
-                return Unauthorized(new
-                {
-                    message = "Please log in first."
-                });
-            }
-
-            if (role != "Participant")
-            {
-                return StatusCode(403, new
-                {
-                    message = "Only Participants can view their own results."
-                });
-            }
-
-            var results = await _context.Results
-                .Where(r => r.Enrolment.ParticipantID == userId.Value)
-                .Select(r => new
-                {
-                    r.ResultID,
-                    r.EnrolmentID,
-                    EventName = r.Enrolment.Event.EventName,
-                    r.FinishTime,
-                    r.FinishPosition
-                })
-                .ToListAsync();
-
-            return Ok(results);
+                ResultId = r.ResultID,
+                EnrolmentId = r.EnrolmentID,
+                EventName = r.Enrolment.Event.EventName,
+                ParticipantName =
+                    r.Enrolment.Participant.FirstName + " " +
+                    r.Enrolment.Participant.LastName,
+                FinishTime = r.FinishTime,
+                FinishPosition = r.FinishPosition
+            });
         }
 
-        // Organisers can record results for participants enrolled in their events.
-        [HttpPost]
+        [HttpPost("api/enrolments/{enrolmentId:int}/result")]
+        [SwaggerOperation(
+            Summary = "Capture a result (owning Organiser)",
+            Description =
+                "Records the finish time (hh:mm:ss) and finishing position for " +
+                "a Participant's enrolment. The Organiser must own the event.")]
+        [SwaggerResponse(201, "Result recorded.", typeof(ResultResponseDto))]
+        [SwaggerResponse(400, "Finish time or position is not valid.")]
+        [SwaggerResponse(401, "Not logged in.")]
+        [SwaggerResponse(403, "Not an Organiser, or not the owner of this event.")]
+        [SwaggerResponse(404, "Enrolment not found.")]
+        [SwaggerResponse(409, "A result already exists for this enrolment.")]
         public async Task<IActionResult> RecordResult(
-            [FromBody] RecordResultRequest request)
+            int enrolmentId,
+            [FromBody] CreateResultRequestDto request)
         {
-            int? userId = HttpContext.Session.GetInt32("UserId");
-            string? role = HttpContext.Session.GetString("Role");
+            var denied = CheckAccess(
+                OrganiserRole,
+                "Only Organisers can record race results.");
+            if (denied != null) return denied;
 
-            if (userId == null || role == null)
-            {
-                return Unauthorized(new
-                {
-                    message = "Please log in first."
-                });
-            }
-
-            if (role != "Organiser")
-            {
-                return StatusCode(403, new
-                {
-                    message = "Only Organisers can record race results."
-                });
-            }
+            int userId = CurrentUserId!.Value;
 
             if (request.FinishTime <= TimeSpan.Zero ||
                 request.FinishPosition <= 0)
@@ -89,27 +71,24 @@ namespace RaceDay.Api.Controllers
 
             var enrolment = await _context.Enrolments
                 .Include(e => e.Event)
-                .FirstOrDefaultAsync(
-                    e => e.EnrolmentID == request.EnrolmentID);
+                .Include(e => e.Participant)
+                .FirstOrDefaultAsync(e => e.EnrolmentID == enrolmentId);
 
             if (enrolment == null)
             {
-                return NotFound(new
-                {
-                    message = "Enrolment not found."
-                });
+                return NotFound(new { message = "Enrolment not found." });
             }
 
-            if (enrolment.Event.OrganiserID != userId.Value)
+            if (enrolment.Event.OrganiserID != userId)
             {
-                return StatusCode(403, new
+                return StatusCode(StatusCodes.Status403Forbidden, new
                 {
                     message = "You can only record results for your own events."
                 });
             }
 
             bool resultExists = await _context.Results
-                .AnyAsync(r => r.EnrolmentID == request.EnrolmentID);
+                .AnyAsync(r => r.EnrolmentID == enrolmentId);
 
             if (resultExists)
             {
@@ -121,7 +100,7 @@ namespace RaceDay.Api.Controllers
 
             var result = new Result
             {
-                EnrolmentID = request.EnrolmentID,
+                EnrolmentID = enrolmentId,
                 FinishTime = request.FinishTime,
                 FinishPosition = request.FinishPosition
             };
@@ -132,84 +111,81 @@ namespace RaceDay.Api.Controllers
             return CreatedAtAction(
                 nameof(GetEventResults),
                 new { eventId = enrolment.EventID },
-                new
+                new ResultResponseDto
                 {
-                    message = "Result recorded successfully.",
-                    result.ResultID,
-                    result.EnrolmentID,
-                    result.FinishTime,
-                    result.FinishPosition
+                    ResultId = result.ResultID,
+                    EnrolmentId = result.EnrolmentID,
+                    EventName = enrolment.Event.EventName,
+                    ParticipantName =
+                        enrolment.Participant.FirstName + " " +
+                        enrolment.Participant.LastName,
+                    FinishTime = result.FinishTime,
+                    FinishPosition = result.FinishPosition
                 });
         }
 
-        // Organisers can view results for their own events.
-        [HttpGet("event/{eventId:int}")]
+        [HttpGet("api/results/me")]
+        [SwaggerOperation(
+            Summary = "View my results (Participant)",
+            Description = "Returns the logged-in Participant's own race results.")]
+        [SwaggerResponse(200, "The Participant's results.", typeof(List<ResultResponseDto>))]
+        [SwaggerResponse(401, "Not logged in.")]
+        [SwaggerResponse(403, "Only Participants can use this endpoint.")]
+        public async Task<IActionResult> GetMyResults()
+        {
+            var denied = CheckAccess(
+                ParticipantRole,
+                "Only Participants can view their own results.");
+            if (denied != null) return denied;
+
+            int userId = CurrentUserId!.Value;
+
+            var results = await ToResponses(
+                    _context.Results.Where(r => r.Enrolment.ParticipantID == userId))
+                .ToListAsync();
+
+            return Ok(results);
+        }
+
+        [HttpGet("api/results/event/{eventId:int}")]
+        [SwaggerOperation(
+            Summary = "View the results of an event (owning Organiser)",
+            Description = "Returns all captured results for an event the Organiser owns, ordered by finishing position.")]
+        [SwaggerResponse(200, "The event's results.", typeof(List<ResultResponseDto>))]
+        [SwaggerResponse(401, "Not logged in.")]
+        [SwaggerResponse(403, "Not an Organiser, or not the owner of this event.")]
+        [SwaggerResponse(404, "Event not found.")]
         public async Task<IActionResult> GetEventResults(int eventId)
         {
-            int? userId = HttpContext.Session.GetInt32("UserId");
-            string? role = HttpContext.Session.GetString("Role");
+            var denied = CheckAccess(
+                OrganiserRole,
+                "Only Organisers can view event results.");
+            if (denied != null) return denied;
 
-            if (userId == null || role == null)
-            {
-                return Unauthorized(new
-                {
-                    message = "Please log in first."
-                });
-            }
-
-            if (role != "Organiser")
-            {
-                return StatusCode(403, new
-                {
-                    message = "Only Organisers can view event results."
-                });
-            }
+            int userId = CurrentUserId!.Value;
 
             var eventItem = await _context.Events
                 .FirstOrDefaultAsync(e => e.EventID == eventId);
 
             if (eventItem == null)
             {
-                return NotFound(new
-                {
-                    message = "Event not found."
-                });
+                return NotFound(new { message = "Event not found." });
             }
 
-            if (eventItem.OrganiserID != userId.Value)
+            if (eventItem.OrganiserID != userId)
             {
-                return StatusCode(403, new
+                return StatusCode(StatusCodes.Status403Forbidden, new
                 {
                     message = "You can only view results for your own events."
                 });
             }
 
-            var results = await _context.Results
-                .Where(r => r.Enrolment.EventID == eventId)
-                .Select(r => new
-                {
-                    r.ResultID,
-                    r.EnrolmentID,
-                    ParticipantName =
-                        r.Enrolment.Participant.FirstName + " " +
-                        r.Enrolment.Participant.LastName,
-                    r.FinishTime,
-                    r.FinishPosition
-                })
+            var results = await ToResponses(
+                    _context.Results.Where(r => r.Enrolment.EventID == eventId))
                 .OrderBy(r => r.FinishPosition)
                 .ToListAsync();
 
             return Ok(results);
         }
     }
-
-    public class RecordResultRequest
-    {
-        public int EnrolmentID { get; set; }
-
-        public TimeSpan FinishTime { get; set; }
-
-        public int FinishPosition { get; set; }
-    }
-
 }

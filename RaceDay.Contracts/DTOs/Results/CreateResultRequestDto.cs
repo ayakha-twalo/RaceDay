@@ -1,19 +1,15 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace RaceDay.Contracts.DTOs.Results
 {
+    /// <summary>A Participant's finish time and finishing position.</summary>
     public class CreateResultRequestDto
     {
-        [Required]
-        public int EnrolmentId { get; set; }
+        /// <summary>Finish time as hh:mm:ss, for example 00:45:30.</summary>
+        public TimeSpan FinishTime { get; set; }
 
-    public TimeSpan? FinishTime { get; set; }
-
+        /// <summary>Finishing position, 1 or higher.</summary>
         [Range(1, int.MaxValue)]
-        public int? Position { get; set; }
-
-        [StringLength(500)]
-        public string? Notes { get; set; }
+        public int FinishPosition { get; set; }
     }
-
 }

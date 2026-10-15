@@ -1,14 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
-
 namespace RaceDay.Contracts.DTOs.Enrolments
 {
+    /// <summary>The event and category a Participant wants to enter.</summary>
     public class CreateEnrolmentRequestDto
     {
-        [Required]
         public int EventId { get; set; }
 
-    [Required]
         public int CategoryId { get; set; }
     }
-
 }
