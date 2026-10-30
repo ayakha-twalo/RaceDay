@@ -1,0 +1,158 @@
+/* RaceDay theme: deep navy + energetic orange.
+   Every page uses these variables so the look stays consistent. */
+:root {
+    --rd-navy: #0b1f3a;
+    --rd-navy-light: #16335c;
+    --rd-orange: #ff5a1f;
+    --rd-orange-dark: #e04a12;
+    --rd-bg: #f4f6fa;
+    --rd-text: #1b2433;
+}
+
+html {
+    font-size: 15px;
+    position: relative;
+    min-height: 100%;
+}
+
+body {
+    background: var(--rd-bg);
+    color: var(--rd-text);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    margin-bottom: 60px;
+}
+
+h1, h2, h3, h4, h5, .navbar-brand {
+    font-family: 'Barlow Condensed', 'Arial Narrow', Impact, sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+/* ---------- Navigation ---------- */
+.rd-navbar {
+    background: var(--rd-navy);
+    border-bottom: 4px solid var(--rd-orange);
+}
+
+    .rd-navbar .navbar-brand {
+        font-size: 1.8rem;
+        color: #fff;
+    }
+
+        .rd-navbar .navbar-brand span {
+            color: var(--rd-orange);
+        }
+
+    .rd-navbar .nav-link {
+        color: rgba(255,255,255,.8);
+        font-weight: 500;
+    }
+
+        .rd-navbar .nav-link:hover {
+            color: var(--rd-orange);
+        }
+
+.rd-role-badge {
+    background: var(--rd-orange);
+    color: #fff;
+    margin-left: .25rem;
+}
+
+/* ---------- Buttons (override Bootstrap primary) ---------- */
+.btn-primary {
+    --bs-btn-bg: var(--rd-orange);
+    --bs-btn-border-color: var(--rd-orange);
+    --bs-btn-hover-bg: var(--rd-orange-dark);
+    --bs-btn-hover-border-color: var(--rd-orange-dark);
+    --bs-btn-active-bg: var(--rd-orange-dark);
+    --bs-btn-active-border-color: var(--rd-orange-dark);
+    --bs-btn-disabled-bg: var(--rd-orange);
+    --bs-btn-disabled-border-color: var(--rd-orange);
+    --bs-btn-color: #fff;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-active-color: #fff;
+    font-weight: 600;
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--rd-orange);
+    --bs-btn-border-color: var(--rd-orange);
+    --bs-btn-hover-bg: var(--rd-orange);
+    --bs-btn-hover-border-color: var(--rd-orange);
+    --bs-btn-hover-color: #fff;
+}
+
+a {
+    color: var(--rd-orange-dark);
+}
+
+/* ---------- Cards and hero ---------- */
+.rd-card {
+    background: #fff;
+    border: 0;
+    border-radius: .75rem;
+    box-shadow: 0 2px 12px rgba(11, 31, 58, .08);
+}
+
+.rd-hero {
+    background: linear-gradient(135deg, var(--rd-navy) 0%, var(--rd-navy-light) 100%);
+    color: #fff;
+    border-radius: 1rem;
+    padding: 4rem 2rem;
+    border-left: 8px solid var(--rd-orange);
+}
+
+    .rd-hero h1 {
+        font-size: 3.2rem;
+    }
+
+    .rd-hero .accent {
+        color: var(--rd-orange);
+    }
+
+/* ---------- Enrolment status colours (used in Stage 2 and 3) ---------- */
+.status-badge {
+    padding: .4em .8em;
+    border-radius: 2rem;
+    font-weight: 600;
+    font-size: .8rem;
+}
+
+.status-confirmed {
+    background: #198754;
+    color: #fff;
+}
+
+.status-pending {
+    background: #ffc107;
+    color: #222;
+}
+
+.status-cancelled {
+    background: #6c757d;
+    color: #fff;
+}
+
+/* ---------- Event cards and banners (used from Stage 2) ---------- */
+.event-banner {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    border-radius: .75rem .75rem 0 0;
+}
+
+.event-banner-placeholder {
+    height: 180px;
+    border-radius: .75rem .75rem 0 0;
+    background: linear-gradient(135deg, var(--rd-navy), var(--rd-orange));
+}
+
+/* ---------- Footer ---------- */
+.rd-footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    color: #6b7685;
+    font-size: .85rem;
+}
