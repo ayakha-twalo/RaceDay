@@ -1,0 +1,17 @@
+﻿@model EventFormVm
+@{
+    ViewData["Title"] = "Edit event";
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="rd-card p-4">
+            <h1 class="mb-3">Edit event</h1>
+            <partial name="_EventForm" model="Model" />
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

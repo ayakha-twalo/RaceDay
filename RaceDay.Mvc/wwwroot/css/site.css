@@ -156,3 +156,12 @@ a {
     color: #6b7685;
     font-size: .85rem;
 }
+
+/* ---------- Dashboard stat cards ---------- */
+.rd-stat {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--rd-orange);
+    line-height: 1;
+}

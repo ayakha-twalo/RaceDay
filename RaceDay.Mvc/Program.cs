@@ -1,6 +1,12 @@
 using RaceDay.Mvc.Services;
+using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Always use dot decimals and yyyy-MM-dd dates, whatever the PC's
+// regional settings are. Keeps the local app and Docker identical.
+CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 
 builder.Services.AddControllersWithViews();
 
