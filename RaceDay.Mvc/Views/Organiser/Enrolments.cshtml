@@ -1,0 +1,84 @@
+﻿@model EnrolmentsPageVm
+@{
+    ViewData["Title"] = "Enrolments";
+}
+
+@functions {
+    // Picks the colour class for an enrolment status badge.
+    static string BadgeClass(string status) => status switch
+    {
+        "Confirmed" => "status-confirmed",
+        "Pending" => "status-pending",
+        _ => "status-cancelled"
+    };
+}
+
+<h1 class="mb-3">Enrolments</h1>
+
+<partial name="_EventPicker" model="Model" />
+
+@if (Model.SelectedEventId != null)
+{
+    <div class="rd-card p-4">
+        <h2 class="h4">Participants in @Model.SelectedEventName</h2>
+
+        @if (!Model.Enrolments.Any())
+        {
+            <p class="text-muted mb-0">Nobody has enrolled for this event yet.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Participant</th>
+                            <th>Category</th>
+                            <th>Enrolled on</th>
+                            <th>Status</th>
+                            <th class="text-end">Change status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var en in Model.Enrolments)
+                        {
+                            <tr>
+                                <td class="fw-semibold">@en.ParticipantName</td>
+                                <td>@en.CategoryName</td>
+                                <td>@en.EnrolmentDate.ToString("dd MMM yyyy")</td>
+                                <td><span class="status-badge @BadgeClass(en.Status)">@en.Status</span></td>
+                                <td class="text-end text-nowrap">
+                                    @if (en.Status != "Confirmed")
+                                    {
+                                        <form asp-action="UpdateEnrolmentStatus" asp-route-id="@en.EnrolmentId"
+                                              asp-route-eventId="@Model.SelectedEventId" method="post" class="d-inline">
+                                            <input type="hidden" name="status" value="Confirmed" />
+                                            <button type="submit" class="btn btn-sm btn-outline-success">Confirm</button>
+                                        </form>
+                                    }
+                                    @if (en.Status != "Pending")
+                                    {
+                                        <form asp-action="UpdateEnrolmentStatus" asp-route-id="@en.EnrolmentId"
+                                              asp-route-eventId="@Model.SelectedEventId" method="post" class="d-inline">
+                                            <input type="hidden" name="status" value="Pending" />
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary">Set pending</button>
+                                        </form>
+                                    }
+                                    @if (en.Status != "Cancelled")
+                                    {
+                                        <form asp-action="UpdateEnrolmentStatus" asp-route-id="@en.EnrolmentId"
+                                              asp-route-eventId="@Model.SelectedEventId" method="post" class="d-inline"
+                                              onsubmit="return confirm('Cancel this enrolment?');">
+                                            <input type="hidden" name="status" value="Cancelled" />
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Cancel</button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}

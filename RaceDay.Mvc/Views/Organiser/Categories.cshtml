@@ -1,0 +1,79 @@
+﻿@model CategoriesPageVm
+@{
+    ViewData["Title"] = "Categories";
+}
+
+<h1 class="mb-3">Categories</h1>
+
+<partial name="_EventPicker" model="Model" />
+
+@if (Model.SelectedEventId != null)
+{
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="rd-card p-4">
+                <h2 class="h4">Add a category</h2>
+                <p class="text-muted small">For example: Under 20, Senior, Veteran, 10 km.</p>
+
+                <form asp-action="AddCategory" method="post">
+                    <input type="hidden" name="EventId" value="@Model.SelectedEventId" />
+
+                    <div class="mb-3">
+                        <label for="CategoryName" class="form-label">Category name</label>
+                        <input id="CategoryName" name="CategoryName" class="form-control" maxlength="100" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="Description" class="form-label">Description (optional)</label>
+                        <input id="Description" name="Description" class="form-control" maxlength="255" />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Add category</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="rd-card p-4">
+                <h2 class="h4">Categories for @Model.SelectedEventName</h2>
+
+                @if (!Model.Categories.Any())
+                {
+                    <p class="text-muted mb-0">No categories yet. Add the first one on the left.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var c in Model.Categories)
+                                {
+                                    <tr>
+                                        <td class="fw-semibold">@c.CategoryName</td>
+                                        <td>@c.Description</td>
+                                        <td class="text-end text-nowrap">
+                                            <a class="btn btn-sm btn-outline-primary" asp-action="EditCategory"
+                                               asp-route-id="@c.CategoryId" asp-route-eventId="@Model.SelectedEventId">Edit</a>
+
+                                            <form asp-action="DeleteCategory" asp-route-id="@c.CategoryId"
+                                                  asp-route-eventId="@Model.SelectedEventId" method="post" class="d-inline"
+                                                  onsubmit="return confirm('Delete this category?');">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}

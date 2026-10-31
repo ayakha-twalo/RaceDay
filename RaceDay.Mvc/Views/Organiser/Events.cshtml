@@ -40,7 +40,10 @@ else
                             <td>@e.Location</td>
                             <td>@e.Distance.ToString("0.##") km</td>
                             <td>@e.EventTypeName</td>
-                            <td class="text-end">
+                            <td class="text-end text-nowrap">
+                                <a class="btn btn-sm btn-outline-secondary" asp-action="Categories" asp-route-eventId="@e.EventId">Categories</a>
+                                <a class="btn btn-sm btn-outline-secondary" asp-action="Enrolments" asp-route-eventId="@e.EventId">Enrolments</a>
+                                <a class="btn btn-sm btn-outline-secondary" asp-action="Results" asp-route-eventId="@e.EventId">Results</a>
                                 <a class="btn btn-sm btn-outline-primary" asp-action="EditEvent" asp-route-id="@e.EventId">Edit</a>
 
                                 @* Ask "are you sure?" before deleting. *@
