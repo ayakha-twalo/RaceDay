@@ -36,4 +36,7 @@ public class EventFormVm
 
     // The shared form uses this to decide which action to post to.
     public bool IsEdit => EventId > 0;
+
+    // Displays the current event banner when editing an event.
+    public string? BannerImageUrl { get; set; }
 }
