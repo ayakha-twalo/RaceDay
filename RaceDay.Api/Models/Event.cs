@@ -1,4 +1,6 @@
-﻿namespace RaceDay.Api.Models
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace RaceDay.Api.Models
 {
     public class Event
     {
@@ -13,6 +15,11 @@
         public string Location { get; set; } = string.Empty;
 
         public decimal Distance { get; set; }
+
+        // Stores the public Azure URL of the event banner.
+        // This stays empty until an organiser uploads an image.
+        [StringLength(500)]
+        public string? BannerImageUrl { get; set; }
 
         public int OrganiserID { get; set; }
 
