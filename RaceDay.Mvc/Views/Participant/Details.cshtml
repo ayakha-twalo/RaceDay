@@ -1,0 +1,92 @@
+﻿@model EventDetailsVm
+@{
+    ViewData["Title"] = Model.Event.EventName;
+}
+
+@functions {
+    // Picks the colour class for an enrolment status badge.
+    static string BadgeClass(string status) => status switch
+    {
+        "Confirmed" => "status-confirmed",
+        "Pending" => "status-pending",
+        _ => "status-cancelled"
+    };
+}
+
+<a asp-action="Index" class="text-decoration-none">&larr; Back to events</a>
+
+<div class="row g-4 mt-1">
+    <div class="col-lg-7">
+        <div class="rd-card overflow-hidden">
+            @* Stage 4 replaces this placeholder with the event banner image. *@
+            <div class="event-banner-placeholder"></div>
+
+            <div class="p-4">
+                <span class="badge rd-type-badge mb-2">@Model.Event.EventTypeName</span>
+                <h1>@Model.Event.EventName</h1>
+
+                <p>
+                    @(string.IsNullOrWhiteSpace(Model.Event.Description)
+                        ? "No description has been provided for this event."
+                        : Model.Event.Description)
+                </p>
+
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Date</dt>
+                    <dd class="col-sm-8">@Model.Event.EventDate.ToString("dddd, dd MMMM yyyy")</dd>
+
+                    <dt class="col-sm-4">Location</dt>
+                    <dd class="col-sm-8">@Model.Event.Location</dd>
+
+                    <dt class="col-sm-4">Distance</dt>
+                    <dd class="col-sm-8">@Model.Event.Distance.ToString("0.##") km</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="rd-card p-4">
+            <h2 class="h4">Enter this event</h2>
+
+            @if (Model.MyEnrolment != null)
+            {
+                @* Already entered: show the entry instead of the form. *@
+                <p class="mb-2">You have already entered this event.</p>
+                <p class="mb-2">Category: <strong>@Model.MyEnrolment.CategoryName</strong></p>
+                <p class="mb-3">
+                    Status:
+                    <span class="status-badge @BadgeClass(Model.MyEnrolment.Status)">@Model.MyEnrolment.Status</span>
+                </p>
+                <a class="btn btn-outline-primary" asp-action="MyEvents">Go to My Events</a>
+            }
+            else if (!Model.EntriesOpen)
+            {
+                <p class="text-muted mb-0">Entries for this event are closed.</p>
+            }
+            else if (!Model.Categories.Any())
+            {
+                <p class="text-muted mb-0">The organiser has not added any categories yet. Please check back soon.</p>
+            }
+            else
+            {
+                <form asp-action="EnterEvent" method="post">
+                    <input type="hidden" name="eventId" value="@Model.Event.EventId" />
+
+                    <div class="mb-3">
+                        <label for="categoryId" class="form-label">Choose your category</label>
+                        <select id="categoryId" name="categoryId" class="form-select" required>
+                            <option value="">Select a category...</option>
+                            @foreach (var c in Model.Categories)
+                            {
+                                <option value="@c.CategoryId">@c.CategoryName@(string.IsNullOrWhiteSpace(c.Description) ? "" : " - " + c.Description)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">Enter event</button>
+                </form>
+            }
+        </div>
+    </div>
+</div>

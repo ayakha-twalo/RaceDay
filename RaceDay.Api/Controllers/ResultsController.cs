@@ -21,6 +21,8 @@ namespace RaceDay.Api.Controllers
             _context = context;
         }
 
+        // Shared query that turns Result rows into ResultResponseDto objects.
+        // Part 3: now also returns the event id, event date and category name.
         private static IQueryable<ResultResponseDto> ToResponses(
             IQueryable<Result> results)
         {
@@ -28,7 +30,10 @@ namespace RaceDay.Api.Controllers
             {
                 ResultId = r.ResultID,
                 EnrolmentId = r.EnrolmentID,
+                EventId = r.Enrolment.EventID,
                 EventName = r.Enrolment.Event.EventName,
+                EventDate = r.Enrolment.Event.EventDate,
+                CategoryName = r.Enrolment.Category.CategoryName,
                 ParticipantName =
                     r.Enrolment.Participant.FirstName + " " +
                     r.Enrolment.Participant.LastName,
@@ -69,9 +74,11 @@ namespace RaceDay.Api.Controllers
                 });
             }
 
+            // Category is included so the response can show its name.
             var enrolment = await _context.Enrolments
                 .Include(e => e.Event)
                 .Include(e => e.Participant)
+                .Include(e => e.Category)
                 .FirstOrDefaultAsync(e => e.EnrolmentID == enrolmentId);
 
             if (enrolment == null)
@@ -115,7 +122,10 @@ namespace RaceDay.Api.Controllers
                 {
                     ResultId = result.ResultID,
                     EnrolmentId = result.EnrolmentID,
+                    EventId = enrolment.EventID,
                     EventName = enrolment.Event.EventName,
+                    EventDate = enrolment.Event.EventDate,
+                    CategoryName = enrolment.Category.CategoryName,
                     ParticipantName =
                         enrolment.Participant.FirstName + " " +
                         enrolment.Participant.LastName,
