@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using System.Text.Json;
+using System.Net.Http.Headers;
 
 namespace RaceDay.Mvc.Services;
 
@@ -42,6 +43,32 @@ public class RaceDayApiClient
 
     public async Task<ApiResult> DeleteAsync(string url)
         => await SendAsync<object>(HttpMethod.Delete, url, null);
+
+    // Sends an image file to the API using multipart/form-data.
+    public async Task<ApiResult<T>> PostFileAsync<T>(
+        string url,
+        IFormFile file)
+    {
+        using var content = new MultipartFormDataContent();
+
+        using var stream = file.OpenReadStream();
+
+        var fileContent = new StreamContent(stream);
+
+        fileContent.Headers.ContentType =
+            new MediaTypeHeaderValue(file.ContentType);
+
+        // The field name must be "file" to match the API endpoint.
+        content.Add(
+            fileContent,
+            "file",
+            Path.GetFileName(file.FileName));
+
+        return await SendAsync<T>(
+            HttpMethod.Post,
+            url,
+            content);
+    }
 
     // ---------- Internals ----------
 
