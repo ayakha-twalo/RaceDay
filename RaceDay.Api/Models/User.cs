@@ -18,8 +18,8 @@ namespace RaceDay.Api.Models
 
         public string Role { get; set; } = string.Empty;
 
-        // Part 3: web address of the profile picture stored in Azure Blob
-        // Storage. Null until the user uploads one.
+        // Stores the public Azure URL of the user's profile picture
+        // This stays empty until the user uploads a picture
         [StringLength(500)]
         public string? ProfileImageUrl { get; set; }
 
