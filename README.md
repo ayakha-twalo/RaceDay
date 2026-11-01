@@ -359,3 +359,77 @@ Youtube Link: https://youtu.be/0Kd_hAd00N8
 ## GITHUB LINK 
 
 https://github.com/ayakha-twalo/RaceDay
+
+# Part 3 — MVC Application and Azure Blob Storage
+
+Part 3 extends RaceDay with an ASP.NET Core MVC website that communicates
+with the existing Part 2 REST API.
+
+## Technologies Used
+
+- ASP.NET Core MVC
+- C#
+- .NET 8
+- Razor Views
+- Bootstrap
+- Azure Blob Storage
+- Docker
+- GitHub Actions
+
+## MVC Application
+
+The MVC application provides separate functionality for Organisers and
+Participants.
+
+### Organiser functionality
+
+Organisers can:
+
+- View their dashboard.
+- Create and manage events.
+- Upload event banner images.
+- Manage event categories.
+- View participant enrolments.
+- Update enrolment statuses.
+- Capture participant finish times and positions.
+
+### Participant functionality
+
+Participants can:
+
+- Browse upcoming events.
+- Search and filter events.
+- View event details and categories.
+- Enter events.
+- View their enrolments.
+- View their results.
+- Update their profile.
+- Upload a profile picture.
+
+## Azure Blob Storage
+
+Azure Blob Storage is used to store event banner images and profile pictures.
+
+The storage account contains two containers:
+
+- `event-banners`
+- `profile-pictures`
+
+The MVC application does not connect directly to Azure Blob Storage.
+Instead, it sends uploaded files to the Part 2 REST API. The API uses
+the BlobStorageService to upload the files and stores the resulting image
+URLs in the database.
+
+The Azure Storage connection string is kept in User Secrets during
+local development. It must not be committed to GitHub.
+
+## Docker
+
+The RaceDay MVC application can be built and run inside a Docker container.
+
+The API must be running and accessible to the MVC container.
+
+Build the Docker image from the repository root:
+
+```bash
+docker build -f RaceDay.Mvc/Dockerfile -t raceday-mvc .

@@ -1,4 +1,5 @@
 ﻿@model EventBrowseVm
+
 @{
     ViewData["Title"] = "Upcoming events";
 }
@@ -6,13 +7,17 @@
 <h1 class="mb-3">Upcoming events</h1>
 
 @* Filter bar: a GET form, so the filters appear in the address bar. *@
+
 <form asp-action="Index" method="get" class="rd-card p-3 mb-4">
     <div class="row g-2 align-items-end">
         <div class="col-md-5">
             <label for="search" class="form-label">Search</label>
-            <input id="search" name="search" value="@Model.Search" class="form-control"
+            <input id="search" name="search" value="@Model.Search"
+                   class="form-control"
                    placeholder="Event name or location" />
         </div>
+
+        ```
         <div class="col-md-3">
             <label for="type" class="form-label">Type</label>
             <select id="type" name="type" class="form-select">
@@ -22,45 +27,82 @@
                 <option value="Cycle" selected="@(Model.Type == "Cycle")">Cycle</option>
             </select>
         </div>
+
         <div class="col-md-4 d-flex gap-2">
             <button type="submit" class="btn btn-primary">Filter</button>
             <a asp-action="Index" class="btn btn-outline-secondary">Clear</a>
         </div>
     </div>
+    ```
+
 </form>
 
 @if (!Model.Events.Any())
 {
-    <div class="rd-card p-4 text-center">
-        <p class="mb-0">No upcoming events match your search.</p>
-    </div>
+    <div class="rd-card p-4 text-center"> <p class="mb-0">No upcoming events match your search.</p> </div>
 }
 else
 {
+
     <div class="row g-4">
         @foreach (var e in Model.Events)
         {
             <div class="col-md-6 col-lg-4">
                 <div class="rd-card event-card h-100 d-flex flex-column">
-                    @* Stage 4 replaces this placeholder with the event banner image. *@
-                    <div class="event-banner-placeholder"></div>
+
+                    ```
+                    @* Display the uploaded event banner when one exists. *@
+                    @if (!string.IsNullOrWhiteSpace(e.BannerImageUrl))
+                    {
+                        <img src="@e.BannerImageUrl"
+                             alt="@e.EventName banner"
+                             class="event-banner-image" />
+                    }
+                    else
+                    {
+                        @* Display a placeholder when no banner has been uploaded. *@
+                        <div class="event-banner-placeholder"></div>
+                    }
 
                     <div class="p-3 d-flex flex-column flex-grow-1">
-                        <span class="badge rd-type-badge align-self-start mb-2">@e.EventTypeName</span>
+
+                        <span class="badge rd-type-badge align-self-start mb-2">
+                            @e.EventTypeName
+                        </span>
+
                         <h2 class="h4">@e.EventName</h2>
-                        <p class="mb-1"><strong>@e.EventDate.ToString("ddd, dd MMM yyyy")</strong></p>
+
+                        <p class="mb-1">
+                            <strong>
+                                @e.EventDate.ToString("ddd, dd MMM yyyy")
+                            </strong>
+                        </p>
+
                         <p class="text-muted mb-1">@e.Location</p>
-                        <p class="text-muted mb-2">@e.Distance.ToString("0.##") km</p>
+
+                        <p class="text-muted mb-2">
+                            @e.Distance.ToString("0.##") km
+                        </p>
 
                         @if (!string.IsNullOrWhiteSpace(e.Description))
                         {
-                            <p class="small">@(e.Description.Length > 90 ? e.Description.Substring(0, 90) + "..." : e.Description)</p>
+                            <p class="small">
+                                @(e.Description.Length > 90
+                                    ? e.Description.Substring(0, 90) + "..."
+                                    : e.Description)
+                            </p>
                         }
 
-                        <a class="btn btn-primary mt-auto" asp-action="Details" asp-route-id="@e.EventId">View details</a>
+                        <a class="btn btn-primary mt-auto"
+                           asp-action="Details"
+                           asp-route-id="@e.EventId">
+                            View details
+                        </a>
+
                     </div>
                 </div>
             </div>
         }
     </div>
+
 }

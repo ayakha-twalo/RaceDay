@@ -230,3 +230,79 @@ a {
     margin: 0 auto;
     border: 4px solid var(--rd-orange);
 }
+/* Event banner displayed on event cards */
+.event-banner-image {
+    width: 100%;
+    height: 190px;
+    object-fit: cover;
+    display: block;
+}
+
+/* Placeholder displayed when an event has no banner */
+.event-banner-placeholder {
+    width: 100%;
+    height: 190px;
+    background: linear-gradient(135deg, #263849, #526b7a);
+}
+
+/* =====================================================
+   PART 3 - EVENT AND PROFILE IMAGE STYLING
+   ===================================================== */
+
+/* Event banners displayed on event cards and details pages. */
+.event-banner-image {
+    width: 100%;
+    height: 190px;
+    object-fit: cover;
+    display: block;
+}
+
+/* Placeholder for events without uploaded banners. */
+.event-banner-placeholder {
+    width: 100%;
+    height: 190px;
+    background: linear-gradient( 135deg, var(--rd-navy), var(--rd-orange) );
+}
+
+/* Participant profile picture. */
+.profile-photo {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid var(--rd-orange);
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Keep the existing initials avatar consistent. */
+.avatar-circle {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: var(--rd-navy);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 3.5rem;
+    font-weight: 700;
+    margin: 0 auto;
+    border: 4px solid var(--rd-orange);
+}
+
+/* Make images fit smaller screens. */
+@media (max-width: 576px) {
+    .event-banner-image,
+    .event-banner-placeholder {
+        height: 160px;
+    }
+
+    .profile-photo,
+    .avatar-circle {
+        width: 125px;
+        height: 125px;
+    }
+}
