@@ -6,24 +6,17 @@ namespace RaceDay.Api.Services
 {
     public class BlobStorageService
     {
-        private readonly BlobServiceClient _blobServiceClient;
-        private readonly ILogger<BlobStorageService> _logger;
+        // Maximum upload size is 5 MB.
+        private const long MaxFileSizeBytes = 5 * 1024 * 1024;
 
-        // Maximum image size: 5 MB.
-        private const long MaxFileSize = 5 * 1024 * 1024;
-
-        // Only these image extensions are accepted.
-        private readonly string[] allowedExtensions =
+        // Image extensions accepted by the application.
+        private static readonly string[] AllowedExtensions =
         {
-            ".jpg",
-            ".jpeg",
-            ".png",
-            ".gif",
-            ".webp"
+            ".jpg", ".jpeg", ".png", ".gif", ".webp"
         };
 
-        // Only these image types are accepted.
-        private readonly string[] allowedContentTypes =
+        // Image content types accepted by the application.
+        private static readonly string[] AllowedContentTypes =
         {
             "image/jpeg",
             "image/png",
@@ -31,111 +24,114 @@ namespace RaceDay.Api.Services
             "image/webp"
         };
 
-        // Constructor: connects the service to Azure Blob Storage.
+        private readonly IConfiguration _configuration;
+        private readonly ILogger<BlobStorageService> _logger;
+
         public BlobStorageService(
             IConfiguration configuration,
             ILogger<BlobStorageService> logger)
         {
+            _configuration = configuration;
             _logger = logger;
-
-            // Read the Azure connection string from User Secrets.
-            string? connectionString =
-                configuration["AzureBlobStorage:ConnectionString"];
-
-            if (string.IsNullOrWhiteSpace(connectionString))
-            {
-                throw new InvalidOperationException(
-                    "Azure Blob Storage connection string is missing. " +
-                    "Check your User Secrets settings.");
-            }
-
-            _blobServiceClient = new BlobServiceClient(connectionString);
         }
 
-        // Checks whether an uploaded image is valid.
-        public string? ValidateImage(IFormFile? file)
+        // Checks the uploaded image before it is sent to Azure.
+        // Returns null when the image is valid.
+        public string? Validate(IFormFile? file)
         {
             if (file == null || file.Length == 0)
             {
-                return "Please select an image to upload.";
+                return "Please choose an image file to upload.";
             }
 
-            if (file.Length > MaxFileSize)
+            if (file.Length > MaxFileSizeBytes)
             {
-                return "The image must not be larger than 5 MB.";
+                return "The image must be 5 MB or smaller.";
             }
 
             string extension =
                 Path.GetExtension(file.FileName).ToLowerInvariant();
 
-            if (!allowedExtensions.Contains(extension))
-            {
-                return "Only JPG, JPEG, PNG, GIF and WEBP images are allowed.";
-            }
+            string contentType =
+                (file.ContentType ?? string.Empty).ToLowerInvariant();
 
-            if (!allowedContentTypes.Contains(file.ContentType.ToLowerInvariant()))
+            if (!AllowedExtensions.Contains(extension) ||
+                !AllowedContentTypes.Contains(contentType))
             {
-                return "The uploaded file must be a valid image type.";
+                return "Only JPG, PNG, GIF or WEBP images are allowed.";
             }
 
             return null;
         }
 
-        // Uploads an image to the selected Azure container.
-        public async Task<string> UploadImageAsync(
+        // Uploads the image to the specified existing Azure container.
+        public async Task<string> UploadAsync(
             IFormFile file,
             string containerName)
         {
-            // Check the image before uploading.
-            string? validationError = ValidateImage(file);
-
-            if (validationError != null)
+            try
             {
-                throw new ArgumentException(validationError);
-            }
+                // Read the connection string from User Secrets.
+                string connectionString =
+                    _configuration["AzureBlobStorage:ConnectionString"]
+                    ?? throw new InvalidOperationException(
+                        "AzureBlobStorage:ConnectionString is not configured.");
 
-            // Get the Azure container.
-            BlobContainerClient containerClient =
-                _blobServiceClient.GetBlobContainerClient(containerName);
+                // Connect to the Azure storage account.
+                var blobServiceClient =
+                    new BlobServiceClient(connectionString);
 
-            // Check that the container already exists.
-            var containerExists = await containerClient.ExistsAsync();
+                // Select the container.
+                var containerClient =
+                    blobServiceClient.GetBlobContainerClient(containerName);
 
-            if (!containerExists.Value)
-            {
-                throw new InvalidOperationException(
-                    $"The Azure container '{containerName}' does not exist.");
-            }
+                // Check that the container exists.
+                var exists = await containerClient.ExistsAsync();
 
-            // Give the image a unique name to avoid overwriting other images.
-            string extension =
-                Path.GetExtension(file.FileName).ToLowerInvariant();
-
-            string blobName = $"{Guid.NewGuid()}{extension}";
-
-            // Create a reference to the image in Azure.
-            BlobClient blobClient =
-                containerClient.GetBlobClient(blobName);
-
-            // Upload the image.
-            await using Stream stream = file.OpenReadStream();
-
-            await blobClient.UploadAsync(
-                stream,
-                new BlobUploadOptions
+                if (!exists.Value)
                 {
-                    HttpHeaders = new BlobHttpHeaders
+                    throw new InvalidOperationException(
+                        $"The Azure container '{containerName}' does not exist.");
+                }
+
+                // Generate a unique name for the image.
+                string extension =
+                    Path.GetExtension(file.FileName).ToLowerInvariant();
+
+                string blobName = $"{Guid.NewGuid()}{extension}";
+
+                // Create the blob reference.
+                BlobClient blobClient =
+                    containerClient.GetBlobClient(blobName);
+
+                // Upload the file and preserve its content type.
+                await using Stream stream = file.OpenReadStream();
+
+                await blobClient.UploadAsync(
+                    stream,
+                    new BlobUploadOptions
                     {
-                        ContentType = file.ContentType
-                    }
-                });
+                        HttpHeaders = new BlobHttpHeaders
+                        {
+                            ContentType = file.ContentType
+                        }
+                    });
 
-            _logger.LogInformation(
-                "Image successfully uploaded to Azure container {ContainerName}.",
-                containerName);
+                _logger.LogInformation(
+                    "Image uploaded successfully to {ContainerName}.",
+                    containerName);
 
-            // Return the image's public URL.
-            return blobClient.Uri.ToString();
+                // Return the public image URL.
+                return blobClient.Uri.ToString();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Azure Blob Storage image upload failed.");
+
+                throw;
+            }
         }
     }
 }
