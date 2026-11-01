@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using RaceDay.Api.Data;
 using RaceDay.Api.Models;
+using RaceDay.Api.Services;
 using RaceDay.Contracts.DTOs.Events;
+using RaceDay.Contracts.DTOs.Images;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace RaceDay.Api.Controllers
@@ -19,6 +22,7 @@ namespace RaceDay.Api.Controllers
         }
 
         // Shared query that turns Event rows into EventResponseDto objects.
+        // The banner image URL is also included in the response.
         private IQueryable<EventResponseDto> EventQuery()
         {
             return _context.Events.Select(e => new EventResponseDto
@@ -31,10 +35,15 @@ namespace RaceDay.Api.Controllers
                 Distance = e.Distance,
                 EventTypeId = e.EventTypeID,
                 EventTypeName = e.EventType.TypeName,
-                OrganiserId = e.OrganiserID
+                OrganiserId = e.OrganiserID,
+
+                // Return the Azure event banner URL.
+                BannerImageUrl = e.BannerImageUrl
             });
         }
 
+        // GET: api/events
+        // Allows users to browse all RaceDay events.
         [HttpGet]
         [SwaggerOperation(
             Summary = "Browse events",
@@ -49,6 +58,8 @@ namespace RaceDay.Api.Controllers
             return Ok(events);
         }
 
+        // GET: api/events/mine
+        // Returns only events belonging to the logged-in organiser.
         [HttpGet("mine")]
         [SwaggerOperation(
             Summary = "View my events (Organiser)",
@@ -61,7 +72,11 @@ namespace RaceDay.Api.Controllers
             var denied = CheckAccess(
                 OrganiserRole,
                 "Only Organisers can view their own events.");
-            if (denied != null) return denied;
+
+            if (denied != null)
+            {
+                return denied;
+            }
 
             int userId = CurrentUserId!.Value;
 
@@ -73,6 +88,8 @@ namespace RaceDay.Api.Controllers
             return Ok(events);
         }
 
+        // GET: api/events/{id}
+        // Returns information about one event.
         [HttpGet("{id:int}")]
         [SwaggerOperation(
             Summary = "View one event",
@@ -93,6 +110,8 @@ namespace RaceDay.Api.Controllers
             return Ok(eventItem);
         }
 
+        // POST: api/events
+        // Allows an organiser to create a new event.
         [HttpPost]
         [SwaggerOperation(
             Summary = "Create an event (Organiser)",
@@ -110,11 +129,16 @@ namespace RaceDay.Api.Controllers
             var denied = CheckAccess(
                 OrganiserRole,
                 "Only Organisers can create events.");
-            if (denied != null) return denied;
+
+            if (denied != null)
+            {
+                return denied;
+            }
 
             int userId = CurrentUserId!.Value;
 
-            if (request.EventDate <= DateTime.UtcNow || request.Distance <= 0)
+            if (request.EventDate <= DateTime.UtcNow ||
+                request.Distance <= 0)
             {
                 return BadRequest(new
                 {
@@ -123,11 +147,15 @@ namespace RaceDay.Api.Controllers
             }
 
             var eventType = await _context.EventTypes
-                .FirstOrDefaultAsync(t => t.EventTypeID == request.EventTypeId);
+                .FirstOrDefaultAsync(t =>
+                    t.EventTypeID == request.EventTypeId);
 
             if (eventType == null)
             {
-                return BadRequest(new { message = "Event type does not exist." });
+                return BadRequest(new
+                {
+                    message = "Event type does not exist."
+                });
             }
 
             var eventItem = new Event
@@ -142,6 +170,7 @@ namespace RaceDay.Api.Controllers
             };
 
             _context.Events.Add(eventItem);
+
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(
@@ -150,6 +179,8 @@ namespace RaceDay.Api.Controllers
                 ToResponse(eventItem, eventType.TypeName));
         }
 
+        // PUT: api/events/{id}
+        // Allows the organiser who owns an event to update it.
         [HttpPut("{id:int}")]
         [SwaggerOperation(
             Summary = "Update an event (owning Organiser)",
@@ -166,7 +197,11 @@ namespace RaceDay.Api.Controllers
             var denied = CheckAccess(
                 OrganiserRole,
                 "Only Organisers can update events.");
-            if (denied != null) return denied;
+
+            if (denied != null)
+            {
+                return denied;
+            }
 
             int userId = CurrentUserId!.Value;
 
@@ -180,15 +215,18 @@ namespace RaceDay.Api.Controllers
 
             if (eventItem.OrganiserID != userId)
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new
-                {
-                    message = "You can only update your own events."
-                });
+                return StatusCode(
+                    StatusCodes.Status403Forbidden,
+                    new
+                    {
+                        message = "You can only update your own events."
+                    });
             }
 
-            // A new date must be in the future. Keeping the existing date
-            // is always allowed, so an event can still be edited later.
-            bool dateChanged = request.EventDate.Date != eventItem.EventDate.Date;
+            // A new date must be in the future.
+            // Keeping the existing date is allowed.
+            bool dateChanged =
+                request.EventDate.Date != eventItem.EventDate.Date;
 
             if ((dateChanged && request.EventDate <= DateTime.UtcNow) ||
                 request.Distance <= 0)
@@ -200,11 +238,15 @@ namespace RaceDay.Api.Controllers
             }
 
             var eventType = await _context.EventTypes
-                .FirstOrDefaultAsync(t => t.EventTypeID == request.EventTypeId);
+                .FirstOrDefaultAsync(t =>
+                    t.EventTypeID == request.EventTypeId);
 
             if (eventType == null)
             {
-                return BadRequest(new { message = "Event type does not exist." });
+                return BadRequest(new
+                {
+                    message = "Event type does not exist."
+                });
             }
 
             eventItem.EventName = request.EventName.Trim();
@@ -219,6 +261,100 @@ namespace RaceDay.Api.Controllers
             return Ok(ToResponse(eventItem, eventType.TypeName));
         }
 
+        // POST: api/events/{id}/banner
+        // Allows the organiser who owns an event to upload its banner.
+        [HttpPost("{id:int}/banner")]
+        [Consumes("multipart/form-data")]
+        [SwaggerOperation(
+            Summary = "Upload an event banner",
+            Description = "Uploads an event banner to Azure Blob Storage. Only the event's organiser can do this.")]
+        [SwaggerResponse(200, "Event banner uploaded successfully.", typeof(ImageUploadResponseDto))]
+        [SwaggerResponse(400, "Invalid image file.")]
+        [SwaggerResponse(401, "Not logged in.")]
+        [SwaggerResponse(403, "Only the event's organiser can upload its banner.")]
+        [SwaggerResponse(404, "Event not found.")]
+        public async Task<IActionResult> UploadBanner(
+            int id,
+            [FromForm] IFormFile? file,
+            [FromServices] BlobStorageService blobStorage)
+        {
+            // Check that the logged-in user is an organiser.
+            var denied = CheckAccess(
+                OrganiserRole,
+                "Only Organisers can upload event banners.");
+
+            if (denied != null)
+            {
+                return denied;
+            }
+
+            int userId = CurrentUserId!.Value;
+
+            // Find the event in the database.
+            var eventItem = await _context.Events
+                .FirstOrDefaultAsync(e => e.EventID == id);
+
+            if (eventItem == null)
+            {
+                return NotFound(new
+                {
+                    message = "Event not found."
+                });
+            }
+
+            // Check that this organiser owns the event.
+            if (eventItem.OrganiserID != userId)
+            {
+                return StatusCode(
+                    StatusCodes.Status403Forbidden,
+                    new
+                    {
+                        message = "You can only upload banners for your own events."
+                    });
+            }
+
+            // Check whether the selected image is valid.
+            string? validationError = blobStorage.Validate(file);
+
+            if (validationError != null)
+            {
+                return BadRequest(new
+                {
+                    message = validationError
+                });
+            }
+
+            try
+            {
+                // Upload the image to the event-banners container.
+                string imageUrl = await blobStorage.UploadAsync(
+                    file!,
+                    "event-banners");
+
+                // Save the returned Azure URL in the database.
+                eventItem.BannerImageUrl = imageUrl;
+
+                await _context.SaveChangesAsync();
+
+                // Return the uploaded image URL.
+                return Ok(new ImageUploadResponseDto
+                {
+                    ImageUrl = imageUrl
+                });
+            }
+            catch (Exception)
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "The event banner could not be uploaded. Please try again."
+                    });
+            }
+        }
+
+        // DELETE: api/events/{id}
+        // Allows the organiser who owns an event to delete it.
         [HttpDelete("{id:int}")]
         [SwaggerOperation(
             Summary = "Delete an event (owning Organiser)",
@@ -235,7 +371,11 @@ namespace RaceDay.Api.Controllers
             var denied = CheckAccess(
                 OrganiserRole,
                 "Only Organisers can delete events.");
-            if (denied != null) return denied;
+
+            if (denied != null)
+            {
+                return denied;
+            }
 
             int userId = CurrentUserId!.Value;
 
@@ -244,15 +384,20 @@ namespace RaceDay.Api.Controllers
 
             if (eventItem == null)
             {
-                return NotFound(new { message = "Event not found." });
+                return NotFound(new
+                {
+                    message = "Event not found."
+                });
             }
 
             if (eventItem.OrganiserID != userId)
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new
-                {
-                    message = "You can only delete your own events."
-                });
+                return StatusCode(
+                    StatusCodes.Status403Forbidden,
+                    new
+                    {
+                        message = "You can only delete your own events."
+                    });
             }
 
             bool hasEnrolments = await _context.Enrolments
@@ -267,11 +412,14 @@ namespace RaceDay.Api.Controllers
             }
 
             _context.Events.Remove(eventItem);
+
             await _context.SaveChangesAsync();
 
             return NoContent();
         }
 
+        // Converts an Event database record into an EventResponseDto.
+        // The banner URL is included in the response.
         private static EventResponseDto ToResponse(
             Event eventItem,
             string eventTypeName)
@@ -286,7 +434,10 @@ namespace RaceDay.Api.Controllers
                 Distance = eventItem.Distance,
                 EventTypeId = eventItem.EventTypeID,
                 EventTypeName = eventTypeName,
-                OrganiserId = eventItem.OrganiserID
+                OrganiserId = eventItem.OrganiserID,
+
+                // Include the event banner URL.
+                BannerImageUrl = eventItem.BannerImageUrl
             };
         }
     }
