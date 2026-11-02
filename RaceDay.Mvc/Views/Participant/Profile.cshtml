@@ -1,9 +1,9 @@
 ﻿@model ProfileFormVm
+
 @{
     ViewData["Title"] = "My profile";
 
-    // The big letter in the avatar circle (Stage 4 replaces it with a photo).
-    string initial = Model.FirstName.Length > 0
+    string initial = !string.IsNullOrWhiteSpace(Model.FirstName)
         ? Model.FirstName.Substring(0, 1).ToUpper()
         : "?";
 }
@@ -11,41 +11,95 @@
 <h1 class="mb-3">My profile</h1>
 
 <div class="row g-4">
+
+    <!-- Profile picture section -->
     <div class="col-lg-4">
         <div class="rd-card p-4 text-center">
-            <div class="avatar-circle mb-3">@initial</div>
+
+            @if (!string.IsNullOrWhiteSpace(Model.ProfileImageUrl))
+            {
+                <img src="@Model.ProfileImageUrl"
+                     alt="Profile picture"
+                     class="rounded-circle mb-3"
+                     style="width:150px; height:150px; object-fit:cover;" />
+            }
+            else
+            {
+                <div class="avatar-circle mb-3">@initial</div>
+            }
+
             <h2 class="h4 mb-1">@Model.FirstName @Model.LastName</h2>
+
             <span class="badge rd-type-badge">@Model.Role</span>
+
+            <hr />
+
+            <h3 class="h5 mb-3">Profile picture</h3>
+
+            <!-- Upload profile picture -->
+            <form asp-action="UploadProfilePhoto"
+                  method="post"
+                  enctype="multipart/form-data">
+
+                @Html.AntiForgeryToken()
+
+                <div class="mb-3">
+                    <input type="file"
+                           name="file"
+                           class="form-control"
+                           accept=".jpg,.jpeg,.png,.gif,.webp"
+                           required />
+                </div>
+
+                <small class="text-muted d-block mb-3">
+                    JPG, PNG, GIF or WEBP. Maximum size: 5 MB.
+                </small>
+
+                <button type="submit" class="btn btn-primary w-100">
+                    Upload / Change Picture
+                </button>
+
+            </form>
+
         </div>
     </div>
 
+    <!-- Personal details section -->
     <div class="col-lg-8">
         <div class="rd-card p-4">
+
             <h2 class="h4 mb-3">Personal details</h2>
 
             <form asp-action="Profile" method="post">
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+
+                <div asp-validation-summary="ModelOnly"
+                     class="text-danger mb-2"></div>
 
                 <div class="row">
+
                     <div class="col-md-6 mb-3">
                         <label asp-for="FirstName" class="form-label"></label>
                         <input asp-for="FirstName" class="form-control" />
-                        <span asp-validation-for="FirstName" class="text-danger"></span>
+                        <span asp-validation-for="FirstName"
+                              class="text-danger"></span>
                     </div>
+
                     <div class="col-md-6 mb-3">
                         <label asp-for="LastName" class="form-label"></label>
                         <input asp-for="LastName" class="form-control" />
-                        <span asp-validation-for="LastName" class="text-danger"></span>
+                        <span asp-validation-for="LastName"
+                              class="text-danger"></span>
                     </div>
+
                 </div>
 
                 <div class="mb-3">
                     <label asp-for="PhoneNumber" class="form-label"></label>
                     <input asp-for="PhoneNumber" class="form-control" />
-                    <span asp-validation-for="PhoneNumber" class="text-danger"></span>
+                    <span asp-validation-for="PhoneNumber"
+                          class="text-danger"></span>
                 </div>
 
-                @* Email and role cannot be changed, so they are read-only. *@
                 <div class="mb-3">
                     <label asp-for="Email" class="form-label"></label>
                     <input asp-for="Email" class="form-control" readonly />
@@ -53,10 +107,15 @@
 
                 <input type="hidden" asp-for="Role" />
 
-                <button type="submit" class="btn btn-primary">Save changes</button>
+                <button type="submit" class="btn btn-primary">
+                    Save changes
+                </button>
+
             </form>
+
         </div>
     </div>
+
 </div>
 
 @section Scripts {

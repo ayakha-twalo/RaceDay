@@ -28,3 +28,6 @@ jobs:
 
       - name: Run unit tests
         run: dotnet test --configuration Release --no-build
+
+      - name: Build MVC Docker image
+        run: docker build -f RaceDay.Mvc/Dockerfile -t raceday-mvc:ci .
