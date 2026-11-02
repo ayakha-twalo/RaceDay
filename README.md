@@ -292,13 +292,12 @@ The workflow completed successfully after the Docker image build step was added.
 
 ### Part 3 Successful GitHub Actions Screenshot
 
-Add a screenshot of the successful Part 3 workflow run to the repository root using the filename `CI_workflow3.png`, then this image will display below:
-
 ![Part 3 GitHub Actions successful run](CI_workflow3.png)
 
 ## Part 3 Video Presentation
 
-YouTube demonstration link: []
+YouTube demonstration link:
+https://youtu.be/jS5YDoQPfRs
 
 ---
 
