@@ -303,7 +303,8 @@ https://youtu.be/jS5YDoQPfRs
 
 # Repository
 
-GitHub repository: https://github.com/ayakha-twalo/RaceDay
+GitHub repository: 
+https://github.com/ayakha-twalo/RaceDay
 
 ## Main Repository Structure
 
